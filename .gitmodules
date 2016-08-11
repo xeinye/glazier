@@ -1,0 +1,3 @@
+[submodule "libwm"]
+	path = libwm
+	url = git://z3bra.org/libwm
