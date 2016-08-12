@@ -7,6 +7,6 @@ PREFIX = /usr/local
 MANDIR = ${PREFIX}/man
 
 CPPFLAGS = -I./libwm -DVERSION=\"${VERSION}\"
-CFLAGS = ${CPPFLAGS} -Wall -Wextra -pedantic
+CFLAGS = ${CPPFLAGS} -Wall -Wextra -pedantic -g
 LDFLAGS =
 LIBS = -lxcb
