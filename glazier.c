@@ -5,6 +5,7 @@
 #include "config.h"
 
 #define LEN(x) (sizeof(x)/sizeof(x[0]))
+#define NO_EVENT 0
 
 struct ev_callback_t {
 	uint32_t type;
@@ -26,6 +27,7 @@ static const struct ev_callback_t cb[] = {
 	{ XCB_CREATE_NOTIFY,  cb_create },
 	{ XCB_BUTTON_PRESS,   cb_default },
 	{ XCB_BUTTON_RELEASE, cb_default },
+	{ NO_EVENT,           cb_default },
 };
 
 static int
