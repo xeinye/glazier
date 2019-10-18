@@ -1,5 +1,7 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <xcb/xcb.h>
+#include <xcb/xcb_cursor.h>
 
 #include "wm.h"
 #include "config.h"
@@ -62,11 +64,44 @@ cb_create(xcb_generic_event_t *ev)
 static int
 cb_mouse_press(xcb_generic_event_t *ev)
 {
+	xcb_cursor_t p;
+	xcb_cursor_context_t *cx;
+	xcb_grab_pointer_cookie_t c;
+	xcb_grab_pointer_reply_t *r;
 	xcb_button_press_event_t *e;
 
 	e = (xcb_button_press_event_t *)ev;
 	if (verbose)
 		fprintf(stderr, "mouse_press: 0x%08x\n", e->child);
+
+	if (xcb_cursor_context_new(conn, scrn, &cx) < 0) {
+		fprintf(stderr, "cannont instantiate cursor\n");
+		exit(1);
+	}
+
+	switch(e->detail) {
+	case 1:
+		p = xcb_cursor_load_cursor(cx, XHAIR_MOVE);
+		break;
+	case 3:
+		p = xcb_cursor_load_cursor(cx, XHAIR_SIZE);
+		break;
+	default:
+		return 1;
+	}
+
+	/* grab pointer and watch motion events */
+	c = xcb_grab_pointer(conn, 0, scrn->root, XCB_EVENT_MASK_BUTTON_MOTION,
+		XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC,
+		XCB_NONE, p, XCB_CURRENT_TIME);
+
+	r = xcb_grab_pointer_reply(conn, c, NULL);
+	if (!r || r->status != XCB_GRAB_STATUS_SUCCESS) {
+		fprintf(stderr, "cannot grab pointer\n");
+		return 1;
+	}
+
+	xcb_flush(conn);
 
 	return 0;
 }

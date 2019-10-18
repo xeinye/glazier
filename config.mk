@@ -9,4 +9,4 @@ MANDIR = ${PREFIX}/man
 CPPFLAGS = -I./libwm -DVERSION=\"${VERSION}\"
 CFLAGS = $(CPPFLAGS) -Wall -Wextra -pedantic -g
 LDFLAGS = -L./libwm
-LDLIBS = -lxcb -lwm
+LDLIBS = -lxcb -lxcb-cursor -lwm
