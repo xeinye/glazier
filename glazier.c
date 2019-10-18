@@ -17,6 +17,8 @@ static int ev_callback(xcb_generic_event_t *);
 /* XCB events callbacks */
 static int cb_default(xcb_generic_event_t *);
 static int cb_create(xcb_generic_event_t *);
+static int cb_mouse_press(xcb_generic_event_t *);
+static int cb_mouse_release(xcb_generic_event_t *);
 
 int verbose = 1;
 xcb_connection_t *conn;
@@ -25,8 +27,8 @@ xcb_screen_t     *scrn;
 static const struct ev_callback_t cb[] = {
 	/* event,             function */
 	{ XCB_CREATE_NOTIFY,  cb_create },
-	{ XCB_BUTTON_PRESS,   cb_default },
-	{ XCB_BUTTON_RELEASE, cb_default },
+	{ XCB_BUTTON_PRESS,   cb_mouse_press },
+	{ XCB_BUTTON_RELEASE, cb_mouse_release },
 	{ NO_EVENT,           cb_default },
 };
 
@@ -48,8 +50,34 @@ cb_create(xcb_generic_event_t *ev)
 	e = (xcb_create_notify_event_t *)ev;
 
 	if (verbose)
-		fprintf(stderr, "create 0x%08x\n", e->window);
+		fprintf(stderr, "create: 0x%08x\n", e->window);
 
+	wm_set_border(border, border_color, e->window);
+	wm_set_focus(e->window);
+
+	return 0;
+}
+
+static int
+cb_mouse_press(xcb_generic_event_t *ev)
+{
+	xcb_button_press_event_t *e;
+
+	e = (xcb_button_press_event_t *)ev;
+	if (verbose)
+		fprintf(stderr, "mouse_press: 0x%08x\n", e->child);
+
+	return 0;
+}
+
+static int
+cb_mouse_release(xcb_generic_event_t *ev)
+{
+	xcb_button_release_event_t *e;
+
+	e = (xcb_button_release_event_t *)ev;
+	if (verbose)
+		fprintf(stderr, "mouse_release: 0x%08x\n", e->child);
 	return 0;
 }
 
