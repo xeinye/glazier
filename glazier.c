@@ -44,8 +44,8 @@ ev_callback(xcb_generic_event_t *ev)
 
 	type = ev->response_type & ~0x80;
 	for (i=0; i<LEN(cb); i++)
-		if (type == cb->type)
-			return cb->handle(ev);
+		if (type == cb[i].type)
+			return cb[i].handle(ev);
 
 	return 1;
 }
