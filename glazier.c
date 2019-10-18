@@ -75,7 +75,7 @@ cb_mouse_press(xcb_generic_event_t *ev)
 		fprintf(stderr, "mouse_press: 0x%08x\n", e->child);
 
 	if (xcb_cursor_context_new(conn, scrn, &cx) < 0) {
-		fprintf(stderr, "cannont instantiate cursor\n");
+		fprintf(stderr, "cannot instantiate cursor\n");
 		exit(1);
 	}
 
