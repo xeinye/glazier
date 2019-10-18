@@ -166,6 +166,8 @@ cb_motion(xcb_generic_event_t *ev)
 		break;
 	}
 
+	wm_set_border(border, border_color, wid);
+
 	return 0;
 }
 
