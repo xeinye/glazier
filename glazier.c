@@ -12,8 +12,8 @@ struct ev_callback_t {
 
 static int cb_create(xcb_generic_event_t *);
 static int ev_callback(xcb_generic_event_t *);
-static void ev_loop();
 
+int verbose = 1;
 xcb_connection_t *conn;
 xcb_screen_t     *scrn;
 
@@ -25,9 +25,14 @@ static const struct ev_callback_t cb[] = {
 static int
 cb_create(xcb_generic_event_t *ev)
 {
-	xcb_create_notify_event_t *e = (xcb_create_notify_event_t *)ev;
+	uint32_t val[2];
+	xcb_create_notify_event_t *e;
 
-	printf("%d:%d\n", e->response_type, e->window);
+	e = (xcb_create_notify_event_t *)ev;
+
+	if (verbose)
+		fprintf(stderr, "create 0x%08x\n", e->window);
+
 	return 0;
 }
 
@@ -45,27 +50,25 @@ ev_callback(xcb_generic_event_t *ev)
 	return 1;
 }
 
-static void
-ev_loop()
+int
+main (int argc, char *argv[])
 {
 	xcb_generic_event_t *ev = NULL;
+
+	wm_init_xcb();
+	wm_get_screen();
 
 	/* needed to get notified of windows creation */
 	wm_reg_event(scrn->root, XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY);
 	xcb_flush(conn);
 
 	for (;;) {
-		ev = xcb_wait_for_event(conn);
+		if (!(ev = xcb_wait_for_event(conn)))
+			break;
+
 		ev_callback(ev);
 	}
-}
 
-int
-main (int argc, char *argv[])
-{
-	wm_init_xcb();
-	wm_get_screen();
-	ev_loop();
 	wm_kill_xcb();
 
 	return 0;
