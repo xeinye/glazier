@@ -105,6 +105,7 @@ cb_mouse_press(xcb_generic_event_t *ev)
 	}
 
 	xcb_flush(conn);
+	xcb_cursor_context_free(cx);
 
 	return 0;
 }
@@ -114,15 +115,24 @@ cb_mouse_release(xcb_generic_event_t *ev)
 {
 	xcb_cursor_t p;
 	xcb_cursor_context_t *cx;
-	xcb_grab_pointer_cookie_t c;
-	xcb_grab_pointer_reply_t *r;
 	xcb_button_release_event_t *e;
 
 	e = (xcb_button_release_event_t *)ev;
 	if (verbose)
 		fprintf(stderr, "mouse_release: 0x%08x\n", e->child);
 
+	if (xcb_cursor_context_new(conn, scrn, &cx) < 0) {
+		fprintf(stderr, "cannot instantiate cursor\n");
+		exit(1);
+	}
+
+	p = xcb_cursor_load_cursor(cx, XHAIR_DFLT);
+	xcb_change_window_attributes(conn, e->child, XCB_CW_CURSOR, &p);
 	xcb_ungrab_pointer(conn, XCB_CURRENT_TIME);
+
+	xcb_flush(conn);
+	xcb_cursor_context_free(cx);
+
 	return 0;
 }
 

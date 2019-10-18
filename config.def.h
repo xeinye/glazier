@@ -3,6 +3,7 @@
 
 #define XHAIR_MOVE "hand1"
 #define XHAIR_SIZE "tcross"
+#define XHAIR_DFLT "left_ptr"
 
 /* window borders */
 int border = 8;
