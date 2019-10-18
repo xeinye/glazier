@@ -1,7 +1,5 @@
 include config.mk
 
-SRC = glazier.c
-
 glazier: glazier.o libwm/libwm.a
 glazier.o: glazier.c config.h
 
