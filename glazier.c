@@ -21,16 +21,20 @@ static int cb_default(xcb_generic_event_t *);
 static int cb_create(xcb_generic_event_t *);
 static int cb_mouse_press(xcb_generic_event_t *);
 static int cb_mouse_release(xcb_generic_event_t *);
+static int cb_motion(xcb_generic_event_t *);
 
 int verbose = 1;
 xcb_connection_t *conn;
 xcb_screen_t     *scrn;
+xcb_window_t      wid;
+int button = 0;
 
 static const struct ev_callback_t cb[] = {
 	/* event,             function */
 	{ XCB_CREATE_NOTIFY,  cb_create },
 	{ XCB_BUTTON_PRESS,   cb_mouse_press },
 	{ XCB_BUTTON_RELEASE, cb_mouse_release },
+	{ XCB_MOTION_NOTIFY,  cb_motion },
 	{ NO_EVENT,           cb_default },
 };
 
@@ -74,12 +78,16 @@ cb_mouse_press(xcb_generic_event_t *ev)
 	if (verbose)
 		fprintf(stderr, "mouse_press: 0x%08x\n", e->child);
 
+	/* set window id globally for move/reshape */
+	wid = e->child;
+	button = e->detail;
+
 	if (xcb_cursor_context_new(conn, scrn, &cx) < 0) {
 		fprintf(stderr, "cannot instantiate cursor\n");
 		exit(1);
 	}
 
-	switch(e->detail) {
+	switch(button) {
 	case 1:
 		p = xcb_cursor_load_cursor(cx, XHAIR_MOVE);
 		break;
@@ -132,6 +140,31 @@ cb_mouse_release(xcb_generic_event_t *ev)
 
 	xcb_flush(conn);
 	xcb_cursor_context_free(cx);
+	wid = scrn->root;
+
+	return 0;
+}
+
+static int
+cb_motion(xcb_generic_event_t *ev)
+{
+	int x,y;
+	xcb_motion_notify_event_t *e;
+
+	e = (xcb_motion_notify_event_t *)ev;
+	if (verbose)
+		fprintf(stderr, "motion: 0x%08x\n", e->child);
+
+	wm_get_cursor(0, wid, &x, &y);
+
+	switch (button) {
+	case 1:
+		wm_move(wid, ABSOLUTE, x, y);
+		break;
+	case 3:
+		wm_resize(wid, ABSOLUTE, x, y);
+		break;
+	}
 
 	return 0;
 }
@@ -157,6 +190,8 @@ main (int argc, char *argv[])
 
 	wm_init_xcb();
 	wm_get_screen();
+
+	wid = scrn->root;
 
 	/* grab mouse clicks for window movement */
 	xcb_grab_button(conn, 1, scrn->root,
