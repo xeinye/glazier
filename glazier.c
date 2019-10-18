@@ -91,7 +91,10 @@ cb_mouse_press(xcb_generic_event_t *ev)
 	}
 
 	/* grab pointer and watch motion events */
-	c = xcb_grab_pointer(conn, 0, scrn->root, XCB_EVENT_MASK_BUTTON_MOTION,
+	c = xcb_grab_pointer(conn, 0, scrn->root,
+		XCB_EVENT_MASK_BUTTON_PRESS |
+		XCB_EVENT_MASK_BUTTON_RELEASE |
+		XCB_EVENT_MASK_BUTTON_MOTION,
 		XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC,
 		XCB_NONE, p, XCB_CURRENT_TIME);
 
@@ -109,11 +112,17 @@ cb_mouse_press(xcb_generic_event_t *ev)
 static int
 cb_mouse_release(xcb_generic_event_t *ev)
 {
+	xcb_cursor_t p;
+	xcb_cursor_context_t *cx;
+	xcb_grab_pointer_cookie_t c;
+	xcb_grab_pointer_reply_t *r;
 	xcb_button_release_event_t *e;
 
 	e = (xcb_button_release_event_t *)ev;
 	if (verbose)
 		fprintf(stderr, "mouse_release: 0x%08x\n", e->child);
+
+	xcb_ungrab_pointer(conn, XCB_CURRENT_TIME);
 	return 0;
 }
 
