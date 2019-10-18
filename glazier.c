@@ -44,16 +44,17 @@ cb_default(xcb_generic_event_t *ev)
 static int
 cb_create(xcb_generic_event_t *ev)
 {
-	uint32_t val[2];
 	xcb_create_notify_event_t *e;
 
 	e = (xcb_create_notify_event_t *)ev;
-
 	if (verbose)
 		fprintf(stderr, "create: 0x%08x\n", e->window);
 
+	wm_reg_event(e->window, XCB_EVENT_MASK_ENTER_WINDOW|XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY);
 	wm_set_border(border, border_color, e->window);
 	wm_set_focus(e->window);
+
+	xcb_flush(conn);
 
 	return 0;
 }
