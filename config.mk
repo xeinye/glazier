@@ -1,12 +1,12 @@
 VERSION = 0.0
 
 CC = cc
-LD = ${CC}
+LD = $(CC)
 
 PREFIX = /usr/local
 MANDIR = ${PREFIX}/man
 
 CPPFLAGS = -I./libwm -DVERSION=\"${VERSION}\"
-CFLAGS = ${CPPFLAGS} -Wall -Wextra -pedantic -g
-LDFLAGS =
-LIBS = -lxcb
+CFLAGS = $(CPPFLAGS) -Wall -Wextra -pedantic -g
+LDFLAGS = -L./libwm
+LDLIBS = -lxcb -lwm
