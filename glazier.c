@@ -11,17 +11,31 @@ struct ev_callback_t {
 	int (*handle)(xcb_generic_event_t *);
 };
 
-static int cb_create(xcb_generic_event_t *);
 static int ev_callback(xcb_generic_event_t *);
+
+/* XCB events callbacks */
+static int cb_default(xcb_generic_event_t *);
+static int cb_create(xcb_generic_event_t *);
 
 int verbose = 1;
 xcb_connection_t *conn;
 xcb_screen_t     *scrn;
 
 static const struct ev_callback_t cb[] = {
-	/* event,                 function */
-	{  XCB_CREATE_NOTIFY,     cb_create },
+	/* event,             function */
+	{ XCB_CREATE_NOTIFY,  cb_create },
+	{ XCB_BUTTON_PRESS,   cb_default },
+	{ XCB_BUTTON_RELEASE, cb_default },
 };
+
+static int
+cb_default(xcb_generic_event_t *ev)
+{
+	if (verbose)
+		fprintf(stderr, "event not handled: %d\n", ev->response_type);
+
+	return 0;
+}
 
 static int
 cb_create(xcb_generic_event_t *ev)
@@ -58,6 +72,12 @@ main (int argc, char *argv[])
 
 	wm_init_xcb();
 	wm_get_screen();
+
+	/* grab mouse clicks for window movement */
+	xcb_grab_button(conn, 1, scrn->root,
+		XCB_EVENT_MASK_BUTTON_PRESS | XCB_EVENT_MASK_BUTTON_RELEASE,
+		XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC, XCB_NONE, XCB_NONE,
+		XCB_BUTTON_INDEX_ANY, MODMASK);
 
 	/* needed to get notified of windows creation */
 	wm_reg_event(scrn->root, XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY);
