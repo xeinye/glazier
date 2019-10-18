@@ -3,6 +3,10 @@ include config.mk
 SRC = glazier.c
 
 glazier: glazier.o libwm/libwm.a
+glazier.o: glazier.c config.h
+
+config.h: config.def.h
+	cp config.def.h config.h
 
 clean:
 	rm -f glazier *.o

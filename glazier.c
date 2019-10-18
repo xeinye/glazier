@@ -2,6 +2,7 @@
 #include <xcb/xcb.h>
 
 #include "wm.h"
+#include "config.h"
 
 #define LEN(x) (sizeof(x)/sizeof(x[0]))
 
