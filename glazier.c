@@ -88,6 +88,9 @@ cb_mouse_press(xcb_generic_event_t *ev)
 		exit(1);
 	}
 
+	wm_restack(wid, XCB_STACK_MODE_ABOVE);
+	wm_set_focus(wid);
+
 	switch(button) {
 	case 1:
 		p = xcb_cursor_load_cursor(cx, XHAIR_MOVE);
