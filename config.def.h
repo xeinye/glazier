@@ -8,3 +8,6 @@
 /* window borders */
 int border = 8;
 int border_color = 0xdeadca7;
+
+/* move/resize step amound in pixels */
+int move_step = 8;

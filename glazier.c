@@ -68,6 +68,7 @@ cb_create(xcb_generic_event_t *ev)
 static int
 cb_mouse_press(xcb_generic_event_t *ev)
 {
+	int x, y, w, h;
 	xcb_cursor_t p;
 	xcb_cursor_context_t *cx;
 	xcb_grab_pointer_cookie_t c;
@@ -93,6 +94,20 @@ cb_mouse_press(xcb_generic_event_t *ev)
 		break;
 	case 3:
 		p = xcb_cursor_load_cursor(cx, XHAIR_SIZE);
+		break;
+	case 4:
+		x = wm_get_attribute(wid, ATTR_X) - move_step/2;
+		y = wm_get_attribute(wid, ATTR_Y) - move_step/2;
+		w = wm_get_attribute(wid, ATTR_W) + move_step;
+		h = wm_get_attribute(wid, ATTR_H) + move_step;
+		wm_teleport(wid, x, y, w, h);
+		break;
+	case 5:
+		x = wm_get_attribute(wid, ATTR_X) + move_step/2;
+		y = wm_get_attribute(wid, ATTR_Y) + move_step/2;
+		w = wm_get_attribute(wid, ATTR_W) - move_step;
+		h = wm_get_attribute(wid, ATTR_H) - move_step;
+		wm_teleport(wid, x, y, w, h);
 		break;
 	default:
 		return 1;
