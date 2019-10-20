@@ -193,7 +193,6 @@ cb_mouse_press(xcb_generic_event_t *ev)
 		return 1;
 	}
 
-	xcb_flush(conn);
 	xcb_cursor_context_free(cx);
 
 	return 0;
@@ -219,7 +218,6 @@ cb_mouse_release(xcb_generic_event_t *ev)
 	xcb_change_window_attributes(conn, e->child, XCB_CW_CURSOR, &p);
 	xcb_ungrab_pointer(conn, XCB_CURRENT_TIME);
 
-	xcb_flush(conn);
 	xcb_cursor_context_free(cx);
 
 	cursor.x = 0;
@@ -324,6 +322,7 @@ main (int argc, char *argv[])
 			break;
 
 		ev_callback(ev);
+		xcb_flush(conn);
 		free(ev);
 	}
 
