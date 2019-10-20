@@ -14,29 +14,72 @@ struct ev_callback_t {
 	int (*handle)(xcb_generic_event_t *);
 };
 
+struct cursor_t {
+	int x;
+	int y;
+	int b;
+};
+
 static int ev_callback(xcb_generic_event_t *);
 
 /* XCB events callbacks */
 static int cb_default(xcb_generic_event_t *);
 static int cb_create(xcb_generic_event_t *);
+static int cb_destroy(xcb_generic_event_t *);
 static int cb_mouse_press(xcb_generic_event_t *);
 static int cb_mouse_release(xcb_generic_event_t *);
 static int cb_motion(xcb_generic_event_t *);
+static int cb_enter(xcb_generic_event_t *);
 
 int verbose = 1;
 xcb_connection_t *conn;
 xcb_screen_t     *scrn;
 xcb_window_t      wid;
-int button = 0;
+struct cursor_t   cursor;
 
 static const struct ev_callback_t cb[] = {
 	/* event,             function */
 	{ XCB_CREATE_NOTIFY,  cb_create },
+	{ XCB_DESTROY_NOTIFY, cb_destroy },
 	{ XCB_BUTTON_PRESS,   cb_mouse_press },
 	{ XCB_BUTTON_RELEASE, cb_mouse_release },
 	{ XCB_MOTION_NOTIFY,  cb_motion },
+	{ XCB_ENTER_NOTIFY,   cb_enter },
 	{ NO_EVENT,           cb_default },
 };
+
+xcb_window_t
+frame_window(xcb_window_t child)
+{
+	int b,x,y,w,h,val[2];
+	xcb_window_t parent;
+
+	val[0] = titlebar_color;
+
+	b = 0;
+	x = wm_get_attribute(child, ATTR_X);
+	y = wm_get_attribute(child, ATTR_Y) - titlebar;
+	w = wm_get_attribute(child, ATTR_W);
+	h = wm_get_attribute(child, ATTR_H) + titlebar;
+
+	parent = xcb_generate_id(conn);
+	val[0] = titlebar_color;
+	val[1] =  XCB_EVENT_MASK_EXPOSURE
+		| XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY
+		| XCB_EVENT_MASK_ENTER_WINDOW
+		| XCB_EVENT_MASK_BUTTON_PRESS
+		| XCB_EVENT_MASK_BUTTON_RELEASE
+		| XCB_EVENT_MASK_BUTTON_MOTION;
+
+	xcb_create_window(conn, scrn->root_depth, parent, scrn->root,
+		x, y, w, h, b, XCB_WINDOW_CLASS_INPUT_OUTPUT, scrn->root_visual,
+		XCB_CW_BACK_PIXEL | XCB_CW_EVENT_MASK, val);
+
+	xcb_reparent_window(conn, child, parent, 0, titlebar);
+	xcb_map_window(conn, parent);
+
+	return parent;
+}
 
 static int
 cb_default(xcb_generic_event_t *ev)
@@ -56,11 +99,28 @@ cb_create(xcb_generic_event_t *ev)
 	if (verbose)
 		fprintf(stderr, "create: 0x%08x\n", e->window);
 
-	wm_reg_event(e->window, XCB_EVENT_MASK_ENTER_WINDOW|XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY);
-	wm_set_border(border, border_color, e->window);
-	wm_set_focus(e->window);
+	/* avoid infinite loops when creating frame window */
+	if (wid == e->window)
+		return 0;
 
-	xcb_flush(conn);
+	wid = frame_window(e->window);
+	wm_set_focus(wid);
+	wm_reg_event(e->window, XCB_EVENT_MASK_STRUCTURE_NOTIFY);
+
+
+	return 0;
+}
+
+static int
+cb_destroy(xcb_generic_event_t *ev)
+{
+	xcb_create_notify_event_t *e;
+
+	e = (xcb_create_notify_event_t *)ev;
+	if (verbose)
+		fprintf(stderr, "destroy: 0x%08x (0x%08x)\n", e->window, e->parent);
+
+	xcb_destroy_window(conn, e->parent);
 
 	return 0;
 }
@@ -77,11 +137,10 @@ cb_mouse_press(xcb_generic_event_t *ev)
 
 	e = (xcb_button_press_event_t *)ev;
 	if (verbose)
-		fprintf(stderr, "mouse_press: 0x%08x\n", e->child);
+		fprintf(stderr, "mouse_press: 0x%08x\n", e->event);
 
 	/* set window id globally for move/reshape */
-	wid = e->child;
-	button = e->detail;
+	wid = e->event;
 
 	if (xcb_cursor_context_new(conn, scrn, &cx) < 0) {
 		fprintf(stderr, "cannot instantiate cursor\n");
@@ -91,7 +150,11 @@ cb_mouse_press(xcb_generic_event_t *ev)
 	wm_restack(wid, XCB_STACK_MODE_ABOVE);
 	wm_set_focus(wid);
 
-	switch(button) {
+	cursor.x = e->root_x - wm_get_attribute(wid, ATTR_X);
+	cursor.y = e->root_y - wm_get_attribute(wid, ATTR_Y);
+	cursor.b = e->detail;
+
+	switch(e->detail) {
 	case 1:
 		p = xcb_cursor_load_cursor(cx, XHAIR_MOVE);
 		break;
@@ -158,6 +221,10 @@ cb_mouse_release(xcb_generic_event_t *ev)
 
 	xcb_flush(conn);
 	xcb_cursor_context_free(cx);
+
+	cursor.x = 0;
+	cursor.y = 0;
+	cursor.b = 0;
 	wid = scrn->root;
 
 	return 0;
@@ -166,25 +233,59 @@ cb_mouse_release(xcb_generic_event_t *ev)
 static int
 cb_motion(xcb_generic_event_t *ev)
 {
-	int x,y;
+	int x, y;
+	static int last_time = 0;
 	xcb_motion_notify_event_t *e;
+	xcb_window_t *child;
 
 	e = (xcb_motion_notify_event_t *)ev;
+
+	/* ignore some motion events if they happen too often */
+	if (e->time - last_time < 32)
+		return 0;
+
 	if (verbose)
-		fprintf(stderr, "motion: 0x%08x\n", e->child);
+		fprintf(stderr, "motion: 0x%08x (%d,%d)\n", e->event, e->root_x, e->root_y);
 
-	wm_get_cursor(0, wid, &x, &y);
+	x = e->root_x;
+	y = e->root_y;
+	last_time = e->time;
 
-	switch (button) {
+	switch (cursor.b) {
 	case 1:
+		x -= cursor.x;
+		y -= cursor.y;
 		wm_move(wid, ABSOLUTE, x, y);
 		break;
 	case 3:
 		wm_resize(wid, ABSOLUTE, x, y);
+		if (wm_get_windows(wid, &child) == 1) {
+			x = wm_get_attribute(wid, ATTR_W);
+			y = wm_get_attribute(wid, ATTR_H);
+			wm_resize(child[0], ABSOLUTE, x, y);
+			free(child);
+		}
+
 		break;
 	}
 
-	wm_set_border(border, border_color, wid);
+	return 0;
+}
+
+static int
+cb_enter(xcb_generic_event_t *ev)
+{
+	xcb_window_t *child;
+	xcb_enter_notify_event_t *e;
+
+	e = (xcb_enter_notify_event_t *)ev;
+
+	if (wm_get_windows(e->event, &child) == 1) {
+		wm_set_focus(child[0]);
+		free(child);
+	} else {
+		wm_set_focus(e->event);
+	}
 
 	return 0;
 }
@@ -213,21 +314,17 @@ main (int argc, char *argv[])
 
 	wid = scrn->root;
 
-	/* grab mouse clicks for window movement */
-	xcb_grab_button(conn, 1, scrn->root,
-		XCB_EVENT_MASK_BUTTON_PRESS | XCB_EVENT_MASK_BUTTON_RELEASE,
-		XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC, XCB_NONE, XCB_NONE,
-		XCB_BUTTON_INDEX_ANY, MODMASK);
-
 	/* needed to get notified of windows creation */
 	wm_reg_event(scrn->root, XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY);
 	xcb_flush(conn);
 
 	for (;;) {
-		if (!(ev = xcb_wait_for_event(conn)))
+		ev = xcb_wait_for_event(conn);
+		if (!ev)
 			break;
 
 		ev_callback(ev);
+		free(ev);
 	}
 
 	wm_kill_xcb();
