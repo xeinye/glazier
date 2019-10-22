@@ -476,7 +476,7 @@ main (int argc, char *argv[])
 	mask = XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY
 		| XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT;
 
-	if (wm_reg_event(scrn->root, mask) < 0) {
+	if (!wm_reg_event(scrn->root, mask)) {
 		if (verbose)
 			fprintf(stderr, "Cannot redirect root window event.\n");
 		return -1;
