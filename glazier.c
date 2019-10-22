@@ -136,20 +136,30 @@ cb_default(xcb_generic_event_t *ev)
 static int
 cb_create(xcb_generic_event_t *ev)
 {
+	int x, y, w, h;
+	static xcb_window_t frame;
 	xcb_create_notify_event_t *e;
 
 	e = (xcb_create_notify_event_t *)ev;
+	if (e->override_redirect) {
+		return 0;
+	}
+
+	/* avoid infinite loops when creating frame window */
+	if (frame == e->window)
+		return 0;
+
 	if (verbose)
 		fprintf(stderr, "create: 0x%08x\n", e->window);
 
-	/* avoid infinite loops when creating frame window */
-	if (wid == e->window)
-		return 0;
+	frame = frame_window(e->window);
 
-	wid = frame_window(e->window);
-	wm_set_focus(wid);
+	wm_get_cursor(0, scrn->root, &x, &y);
+	w = wm_get_attribute(frame, ATTR_W);
+	h = wm_get_attribute(frame, ATTR_H);
+	wm_move(frame, ABSOLUTE, x - w/2, y - h/2);
 	wm_reg_event(e->window, XCB_EVENT_MASK_STRUCTURE_NOTIFY);
-
+	wm_set_focus(e->window);
 
 	return 0;
 }
