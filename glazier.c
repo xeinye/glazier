@@ -449,6 +449,7 @@ ev_callback(xcb_generic_event_t *ev)
 int
 main (int argc, char *argv[])
 {
+	int mask;
 	char *argv0;
 	xcb_generic_event_t *ev = NULL;
 
@@ -472,8 +473,14 @@ main (int argc, char *argv[])
 	curwid = scrn->root;
 
 	/* needed to get notified of windows creation */
-	wm_reg_event(scrn->root, XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY
-		| XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT);
+	mask = XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY
+		| XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT;
+
+	if (wm_reg_event(scrn->root, mask) < 0) {
+		if (verbose)
+			fprintf(stderr, "Cannot redirect root window event.\n");
+		return -1;
+	}
 	xcb_flush(conn);
 
 	for (;;) {
