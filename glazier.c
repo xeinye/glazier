@@ -286,12 +286,11 @@ cb_motion(xcb_generic_event_t *ev)
 	int x, y;
 	static int last_time = 0;
 	xcb_motion_notify_event_t *e;
-	xcb_window_t *child;
 
 	e = (xcb_motion_notify_event_t *)ev;
 
 	/* ignore some motion events if they happen too often */
-	if (e->time - last_time < 32)
+	if (e->time - last_time < 32 || curwid == scrn->root)
 		return 0;
 
 	if (verbose)
