@@ -76,10 +76,52 @@ frame_window(xcb_window_t child)
 		x, y, w, h, b, XCB_WINDOW_CLASS_INPUT_OUTPUT, scrn->root_visual,
 		XCB_CW_BACK_PIXEL | XCB_CW_EVENT_MASK, val);
 
+	if (verbose)
+		fprintf(stderr, "frame: 0x%08x\n", parent);
+
 	xcb_reparent_window(conn, child, parent, 0, titlebar);
 	xcb_map_window(conn, parent);
 
 	return parent;
+}
+
+xcb_window_t
+get_frame(xcb_window_t wid)
+{
+	xcb_window_t frame = wid;
+	xcb_query_tree_cookie_t c;
+	xcb_query_tree_reply_t *r;
+
+	for (;;) {
+		c = xcb_query_tree(conn, wid);
+		r = xcb_query_tree_reply(conn, c, NULL);
+		if (r == NULL)
+			return -1;
+
+		wid = r->parent;
+		free(r);
+
+		if (wid == scrn->root)
+			break;
+
+		frame = wid;
+	}
+
+	return frame;
+}
+
+xcb_window_t
+get_child(xcb_window_t wid)
+{
+	xcb_window_t child, *children;
+
+	if (wm_get_windows(wid, &children) != 1)
+		return -1;
+
+	child = children[0];
+	free(children);
+
+	return child;
 }
 
 static int
@@ -257,13 +299,8 @@ cb_motion(xcb_generic_event_t *ev)
 		wm_move(curwid, ABSOLUTE, x, y);
 		break;
 	case 3:
+		wm_resize(get_child(curwid), ABSOLUTE, x, y - titlebar);
 		wm_resize(curwid, ABSOLUTE, x, y);
-		if (wm_get_windows(curwid, &child) == 1) {
-			x = wm_get_attribute(curwid, ATTR_W);
-			y = wm_get_attribute(curwid, ATTR_H);
-			wm_resize(child[0], ABSOLUTE, x, y);
-			free(child);
-		}
 		break;
 	}
 
