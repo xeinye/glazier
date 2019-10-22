@@ -224,12 +224,18 @@ cb_mouse_press(xcb_generic_event_t *ev)
 {
 	int x, y, w, h;
 	xcb_cursor_t p;
+	static xcb_timestamp_t lasttime = 0;
 	xcb_cursor_context_t *cx;
 	xcb_grab_pointer_cookie_t c;
 	xcb_grab_pointer_reply_t *r;
 	xcb_button_press_event_t *e;
 
 	e = (xcb_button_press_event_t *)ev;
+
+	/* ignore some motion events if they happen too often */
+	if (e->time - lasttime < 32)
+		return 0;
+
 	if (verbose)
 		fprintf(stderr, "%s 0x%08x\n", XEV(e), e->event);
 
@@ -243,6 +249,7 @@ cb_mouse_press(xcb_generic_event_t *ev)
 	cursor.x = e->root_x - wm_get_attribute(e->event, ATTR_X);
 	cursor.y = e->root_y - wm_get_attribute(e->event, ATTR_Y);
 	cursor.b = e->detail;
+	lasttime = e->time;
 
 	switch(e->detail) {
 	case 1:
