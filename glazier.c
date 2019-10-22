@@ -128,7 +128,7 @@ static int
 cb_default(xcb_generic_event_t *ev)
 {
 	if (verbose)
-		fprintf(stderr, "event not handled: %d\n", ev->response_type);
+		fprintf(stderr, "event received: %d\n", ev->response_type);
 
 	return 0;
 }
