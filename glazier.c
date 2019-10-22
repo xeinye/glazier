@@ -323,6 +323,9 @@ cb_enter(xcb_generic_event_t *ev)
 
 	e = (xcb_enter_notify_event_t *)ev;
 
+	if (verbose)
+		fprintf(stderr, "enter: 0x%08x\n", e->event);
+
 	if (wm_get_windows(e->event, &child) == 1) {
 		wm_set_focus(child[0]);
 		free(child);
