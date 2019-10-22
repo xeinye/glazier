@@ -481,15 +481,14 @@ main (int argc, char *argv[])
 			fprintf(stderr, "Cannot redirect root window event.\n");
 		return -1;
 	}
-	xcb_flush(conn);
 
 	for (;;) {
+		xcb_flush(conn);
 		ev = xcb_wait_for_event(conn);
 		if (!ev)
 			break;
 
 		ev_callback(ev);
-		xcb_flush(conn);
 		free(ev);
 	}
 
