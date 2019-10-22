@@ -176,8 +176,6 @@ cb_mapreq(xcb_generic_event_t *ev)
 	static xcb_window_t frame;
 	xcb_map_request_event_t *e;
 
-	i++;
-
 	e = (xcb_map_request_event_t *)ev;
 
 	/* avoid infinite loops when creating frame window */
