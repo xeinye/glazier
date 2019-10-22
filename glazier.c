@@ -198,6 +198,7 @@ cb_mapreq(xcb_generic_event_t *ev)
 	h = wm_get_attribute(frame, ATTR_H);
 	wm_get_cursor(0, scrn->root, &x, &y);
 
+	wm_set_border(border, titlebar_color, frame);
 	wm_move(frame, ABSOLUTE, x - w/2, y - h/2);
 	xcb_map_window(conn, e->window);
 	wm_set_focus(e->window);

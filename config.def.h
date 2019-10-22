@@ -2,7 +2,8 @@
 #define XHAIR_SIZE "tcross"
 #define XHAIR_DFLT "left_ptr"
 
-/* window titlebars */
+/* window borders and titlebar */
+int border = 2;
 int titlebar = 32;
 int titlebar_color = 0xdeadca7;
 
