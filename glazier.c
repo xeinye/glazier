@@ -8,6 +8,7 @@
 #include "config.h"
 
 #define LEN(x) (sizeof(x)/sizeof(x[0]))
+#define XEV(x) (evname[(x)->response_type & ~0x80])
 
 struct ev_callback_t {
 	uint32_t type;
@@ -40,6 +41,7 @@ xcb_window_t      curwid;
 struct cursor_t   cursor;
 
 static const char *evname[] = {
+	[0] = "EVENT_ERROR",
 	[XCB_CREATE_NOTIFY] = "CREATE_NOTIFY",
 	[XCB_DESTROY_NOTIFY] = "DESTROY_NOTIFY",
 	[XCB_BUTTON_PRESS] = "BUTTON_PRESS",
@@ -116,9 +118,6 @@ frame_window(xcb_window_t child)
 		x, y, w, h, b, XCB_WINDOW_CLASS_INPUT_OUTPUT, scrn->root_visual,
 		XCB_CW_BACK_PIXEL | XCB_CW_EVENT_MASK, val);
 
-	if (verbose)
-		fprintf(stderr, "frame: 0x%08x, child: 0x%08x\n", parent, child);
-
 	xcb_reparent_window(conn, child, parent, 0, titlebar);
 	xcb_map_window(conn, parent);
 
@@ -167,10 +166,10 @@ get_child(xcb_window_t wid)
 static int
 cb_default(xcb_generic_event_t *ev)
 {
-	if (verbose && evname[ev->response_type]) {
-		fprintf(stderr, "event: %s\n", evname[ev->response_type]);
+	if (verbose && XEV(ev)) {
+		fprintf(stderr, "%s not handled\n", XEV(ev));
 	} else if (verbose) {
-		fprintf(stderr, "event: %d\n", ev->response_type);
+		fprintf(stderr, "EVENT %d not handled\n", ev->response_type);
 	}
 
 	return 0;
@@ -190,7 +189,7 @@ cb_mapreq(xcb_generic_event_t *ev)
 		return 0;
 
 	if (verbose)
-		fprintf(stderr, "map: 0x%08x\n", e->window);
+		fprintf(stderr, "%s: 0x%08x\n", XEV(e), e->window);
 
 	frame = frame_window(e->window);
 
@@ -213,7 +212,7 @@ cb_destroy(xcb_generic_event_t *ev)
 
 	e = (xcb_create_notify_event_t *)ev;
 	if (verbose)
-		fprintf(stderr, "destroy: 0x%08x (0x%08x)\n", e->window, e->parent);
+		fprintf(stderr, "%s 0x%08x 0x%08x\n", XEV(e), e->window, e->parent);
 
 	xcb_destroy_window(conn, e->parent);
 
@@ -232,7 +231,7 @@ cb_mouse_press(xcb_generic_event_t *ev)
 
 	e = (xcb_button_press_event_t *)ev;
 	if (verbose)
-		fprintf(stderr, "mouse_press: 0x%08x\n", e->event);
+		fprintf(stderr, "%s 0x%08x\n", XEV(e), e->event);
 
 	if (xcb_cursor_context_new(conn, scrn, &cx) < 0) {
 		fprintf(stderr, "cannot instantiate cursor\n");
@@ -305,7 +304,7 @@ cb_mouse_release(xcb_generic_event_t *ev)
 
 	e = (xcb_button_release_event_t *)ev;
 	if (verbose)
-		fprintf(stderr, "mouse_release: 0x%08x\n", e->child);
+		fprintf(stderr, "%s 0x%08x\n", XEV(e), e->child);
 
 	if (xcb_cursor_context_new(conn, scrn, &cx) < 0) {
 		fprintf(stderr, "cannot instantiate cursor\n");
@@ -340,7 +339,7 @@ cb_motion(xcb_generic_event_t *ev)
 		return 0;
 
 	if (verbose)
-		fprintf(stderr, "motion: 0x%08x (%d,%d)\n", e->event, e->root_x, e->root_y);
+		fprintf(stderr, "%s 0x%08x %d,%d\n", XEV(e), e->event, e->root_x, e->root_y);
 
 	x = e->root_x;
 	y = e->root_y;
@@ -372,7 +371,7 @@ cb_enter(xcb_generic_event_t *ev)
 	e = (xcb_enter_notify_event_t *)ev;
 
 	if (verbose)
-		fprintf(stderr, "enter: 0x%08x\n", e->event);
+		fprintf(stderr, "%s 0x%08x\n", XEV(e), e->event);
 
 	if (wm_get_windows(e->event, &child) == 1) {
 		wm_set_focus(child[0]);
@@ -401,8 +400,8 @@ cb_configure(xcb_generic_event_t *ev)
 		return 0;
 
 	if (verbose)
-		fprintf(stderr, "configure: 0x%08x (0x%08x: %dx%d+%d+%d)\n",
-			frame, e->window,
+		fprintf(stderr, "%s 0x%08x 0x%08x:%dx%d+%d+%d\n",
+			XEV(e), frame, e->window,
 			e->width, e->height,
 			e->x, e->y);
 
@@ -422,8 +421,8 @@ cb_configreq(xcb_generic_event_t *ev)
 	e = (xcb_configure_request_event_t *)ev;
 
 	if (verbose)
-		fprintf(stderr, "config request: 0x%08x (0x%08x:%dx%d+%d+%d)\n",
-			e->parent, e->window,
+		fprintf(stderr, "%s 0x%08x 0x%08x:%dx%d+%d+%d\n",
+			XEV(e), e->parent, e->window,
 			e->width, e->height,
 			e->x, e->y);
 
