@@ -329,13 +329,13 @@ static int
 cb_motion(xcb_generic_event_t *ev)
 {
 	int x, y;
-	static int last_time = 0;
+	static xcb_timestamp_t lasttime = 0;
 	xcb_motion_notify_event_t *e;
 
 	e = (xcb_motion_notify_event_t *)ev;
 
 	/* ignore some motion events if they happen too often */
-	if (e->time - last_time < 32 || curwid == scrn->root)
+	if (e->time - lasttime < 32 || curwid == scrn->root)
 		return 0;
 
 	if (verbose)
@@ -343,7 +343,7 @@ cb_motion(xcb_generic_event_t *ev)
 
 	x = e->root_x;
 	y = e->root_y;
-	last_time = e->time;
+	lasttime = e->time;
 
 	switch (cursor.b) {
 	case 1:
