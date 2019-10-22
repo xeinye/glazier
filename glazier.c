@@ -3,6 +3,7 @@
 #include <xcb/xcb.h>
 #include <xcb/xcb_cursor.h>
 
+#include "arg.h"
 #include "wm.h"
 #include "config.h"
 
@@ -32,7 +33,7 @@ static int cb_enter(xcb_generic_event_t *);
 static int cb_configure(xcb_generic_event_t *);
 static int cb_configreq(xcb_generic_event_t *);
 
-int verbose = 1;
+int verbose = 0;
 xcb_connection_t *conn;
 xcb_screen_t     *scrn;
 xcb_window_t      curwid;
@@ -81,6 +82,12 @@ static const struct ev_callback_t cb[] = {
 	{ XCB_CONFIGURE_NOTIFY, cb_configure },
 	{ XCB_CONFIGURE_REQUEST, cb_configreq },
 };
+
+void
+usage(char *name)
+{
+	fprintf(stderr, "usage: %s [-vh]\n", name);
+}
 
 xcb_window_t
 frame_window(xcb_window_t child)
@@ -441,7 +448,22 @@ ev_callback(xcb_generic_event_t *ev)
 int
 main (int argc, char *argv[])
 {
+	char *argv0;
 	xcb_generic_event_t *ev = NULL;
+
+	ARGBEGIN {
+	case 'v':
+		verbose++;
+		break;
+	case 'h':
+		usage(argv0);
+		return 0;
+		break; /* NOTREACHED */
+	default:
+		usage(argv0);
+		return -1;
+		break; /* NOTREACHED */
+	} ARGEND;
 
 	wm_init_xcb();
 	wm_get_screen();
@@ -449,7 +471,8 @@ main (int argc, char *argv[])
 	curwid = scrn->root;
 
 	/* needed to get notified of windows creation */
-	wm_reg_event(scrn->root, XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY | XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT);
+	wm_reg_event(scrn->root, XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY
+		| XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT);
 	xcb_flush(conn);
 
 	for (;;) {
