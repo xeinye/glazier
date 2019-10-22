@@ -30,6 +30,7 @@ static int cb_mouse_release(xcb_generic_event_t *);
 static int cb_motion(xcb_generic_event_t *);
 static int cb_enter(xcb_generic_event_t *);
 static int cb_configure(xcb_generic_event_t *);
+static int cb_configreq(xcb_generic_event_t *);
 
 int verbose = 1;
 xcb_connection_t *conn;
@@ -78,6 +79,7 @@ static const struct ev_callback_t cb[] = {
 	{ XCB_MOTION_NOTIFY,  cb_motion },
 	{ XCB_ENTER_NOTIFY,   cb_enter },
 	{ XCB_CONFIGURE_NOTIFY, cb_configure },
+	{ XCB_CONFIGURE_REQUEST, cb_configreq },
 };
 
 xcb_window_t
@@ -399,6 +401,24 @@ cb_configure(xcb_generic_event_t *ev)
 	y = wm_get_attribute(frame, ATTR_Y);
 	wm_teleport(e->window, 0, titlebar, e->width, e->height);
 	wm_teleport(get_frame(e->window), x + e->x, y + e->y - titlebar, e->width, e->height + titlebar);
+
+	return 0;
+}
+
+static int
+cb_configreq(xcb_generic_event_t *ev)
+{
+	xcb_configure_request_event_t *e;
+
+	e = (xcb_configure_request_event_t *)ev;
+
+	if (verbose)
+		fprintf(stderr, "config request: 0x%08x (0x%08x:%dx%d+%d+%d)\n",
+			e->parent, e->window,
+			e->width, e->height,
+			e->x, e->y);
+
+	wm_teleport(e->window, e->x, e->y, e->width, e->height);
 
 	return 0;
 }
