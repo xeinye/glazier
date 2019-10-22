@@ -30,11 +30,12 @@ static int cb_mouse_press(xcb_generic_event_t *);
 static int cb_mouse_release(xcb_generic_event_t *);
 static int cb_motion(xcb_generic_event_t *);
 static int cb_enter(xcb_generic_event_t *);
+static int cb_configure(xcb_generic_event_t *);
 
 int verbose = 1;
 xcb_connection_t *conn;
 xcb_screen_t     *scrn;
-xcb_window_t      wid;
+xcb_window_t      curwid;
 struct cursor_t   cursor;
 
 static const struct ev_callback_t cb[] = {
@@ -140,18 +141,18 @@ cb_mouse_press(xcb_generic_event_t *ev)
 		fprintf(stderr, "mouse_press: 0x%08x\n", e->event);
 
 	/* set window id globally for move/reshape */
-	wid = e->event;
+	curwid = e->event;
 
 	if (xcb_cursor_context_new(conn, scrn, &cx) < 0) {
 		fprintf(stderr, "cannot instantiate cursor\n");
 		exit(1);
 	}
 
-	wm_restack(wid, XCB_STACK_MODE_ABOVE);
+	wm_restack(curwid, XCB_STACK_MODE_ABOVE);
 	wm_set_focus(wid);
 
-	cursor.x = e->root_x - wm_get_attribute(wid, ATTR_X);
-	cursor.y = e->root_y - wm_get_attribute(wid, ATTR_Y);
+	cursor.x = e->root_x - wm_get_attribute(curwid, ATTR_X);
+	cursor.y = e->root_y - wm_get_attribute(curwid, ATTR_Y);
 	cursor.b = e->detail;
 
 	switch(e->detail) {
@@ -162,18 +163,18 @@ cb_mouse_press(xcb_generic_event_t *ev)
 		p = xcb_cursor_load_cursor(cx, XHAIR_SIZE);
 		break;
 	case 4:
-		x = wm_get_attribute(wid, ATTR_X) - move_step/2;
-		y = wm_get_attribute(wid, ATTR_Y) - move_step/2;
-		w = wm_get_attribute(wid, ATTR_W) + move_step;
-		h = wm_get_attribute(wid, ATTR_H) + move_step;
-		wm_teleport(wid, x, y, w, h);
+		x = wm_get_attribute(curwid, ATTR_X) - move_step/2;
+		y = wm_get_attribute(curwid, ATTR_Y) - move_step/2;
+		w = wm_get_attribute(curwid, ATTR_W) + move_step;
+		h = wm_get_attribute(curwid, ATTR_H) + move_step;
+		wm_teleport(curwid, x, y, w, h);
 		break;
 	case 5:
-		x = wm_get_attribute(wid, ATTR_X) + move_step/2;
-		y = wm_get_attribute(wid, ATTR_Y) + move_step/2;
-		w = wm_get_attribute(wid, ATTR_W) - move_step;
-		h = wm_get_attribute(wid, ATTR_H) - move_step;
-		wm_teleport(wid, x, y, w, h);
+		x = wm_get_attribute(curwid, ATTR_X) + move_step/2;
+		y = wm_get_attribute(curwid, ATTR_Y) + move_step/2;
+		w = wm_get_attribute(curwid, ATTR_W) - move_step;
+		h = wm_get_attribute(curwid, ATTR_H) - move_step;
+		wm_teleport(curwid, x, y, w, h);
 		break;
 	default:
 		return 1;
@@ -223,7 +224,7 @@ cb_mouse_release(xcb_generic_event_t *ev)
 	cursor.x = 0;
 	cursor.y = 0;
 	cursor.b = 0;
-	wid = scrn->root;
+	curwid = scrn->root;
 
 	return 0;
 }
@@ -253,17 +254,16 @@ cb_motion(xcb_generic_event_t *ev)
 	case 1:
 		x -= cursor.x;
 		y -= cursor.y;
-		wm_move(wid, ABSOLUTE, x, y);
+		wm_move(curwid, ABSOLUTE, x, y);
 		break;
 	case 3:
-		wm_resize(wid, ABSOLUTE, x, y);
-		if (wm_get_windows(wid, &child) == 1) {
-			x = wm_get_attribute(wid, ATTR_W);
-			y = wm_get_attribute(wid, ATTR_H);
+		wm_resize(curwid, ABSOLUTE, x, y);
+		if (wm_get_windows(curwid, &child) == 1) {
+			x = wm_get_attribute(curwid, ATTR_W);
+			y = wm_get_attribute(curwid, ATTR_H);
 			wm_resize(child[0], ABSOLUTE, x, y);
 			free(child);
 		}
-
 		break;
 	}
 
@@ -310,7 +310,7 @@ main (int argc, char *argv[])
 	wm_init_xcb();
 	wm_get_screen();
 
-	wid = scrn->root;
+	curwid = scrn->root;
 
 	/* needed to get notified of windows creation */
 	wm_reg_event(scrn->root, XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY);
