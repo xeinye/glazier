@@ -7,7 +7,6 @@
 #include "config.h"
 
 #define LEN(x) (sizeof(x)/sizeof(x[0]))
-#define NO_EVENT 0
 
 struct ev_callback_t {
 	uint32_t type;
@@ -38,6 +37,38 @@ xcb_screen_t     *scrn;
 xcb_window_t      curwid;
 struct cursor_t   cursor;
 
+static const char *evname[] = {
+	[XCB_CREATE_NOTIFY] = "CREATE_NOTIFY",
+	[XCB_DESTROY_NOTIFY] = "DESTROY_NOTIFY",
+	[XCB_BUTTON_PRESS] = "BUTTON_PRESS",
+	[XCB_BUTTON_RELEASE] = "BUTTON_RELEASE",
+	[XCB_MOTION_NOTIFY] = "MOTION_NOTIFY",
+	[XCB_ENTER_NOTIFY] = "ENTER_NOTIFY",
+	[XCB_CONFIGURE_NOTIFY] = "CONFIGURE_NOTIFY",
+	[XCB_KEY_PRESS] = "KEY_PRESS",
+	[XCB_FOCUS_IN] = "FOCUS_IN",
+	[XCB_KEYMAP_NOTIFY] = "KEYMAP_NOTIFY",
+	[XCB_EXPOSE] = "EXPOSE",
+	[XCB_GRAPHICS_EXPOSURE] = "GRAPHICS_EXPOSURE",
+	[XCB_NO_EXPOSURE] = "NO_EXPOSURE",
+	[XCB_VISIBILITY_NOTIFY] = "VISIBILITY_NOTIFY",
+	[XCB_UNMAP_NOTIFY] = "UNMAP_NOTIFY",
+	[XCB_MAP_NOTIFY] = "MAP_NOTIFY",
+	[XCB_MAP_REQUEST] = "MAP_REQUEST",
+	[XCB_REPARENT_NOTIFY] = "REPARENT_NOTIFY",
+	[XCB_CONFIGURE_REQUEST] = "CONFIGURE_REQUEST",
+	[XCB_GRAVITY_NOTIFY] = "GRAVITY_NOTIFY",
+	[XCB_RESIZE_REQUEST] = "RESIZE_REQUEST",
+	[XCB_CIRCULATE_NOTIFY] = "CIRCULATE_NOTIFY",
+	[XCB_PROPERTY_NOTIFY] = "PROPERTY_NOTIFY",
+	[XCB_SELECTION_CLEAR] = "SELECTION_CLEAR",
+	[XCB_SELECTION_REQUEST] = "SELECTION_REQUEST",
+	[XCB_SELECTION_NOTIFY] = "SELECTION_NOTIFY",
+	[XCB_COLORMAP_NOTIFY] = "COLORMAP_NOTIFY",
+	[XCB_CLIENT_MESSAGE] = "CLIENT_MESSAGE",
+	[XCB_MAPPING_NOTIFY] = "MAPPING_NOTIFY"
+};
+
 static const struct ev_callback_t cb[] = {
 	/* event,             function */
 	{ XCB_MAP_NOTIFY,  cb_map },
@@ -47,6 +78,30 @@ static const struct ev_callback_t cb[] = {
 	{ XCB_MOTION_NOTIFY,  cb_motion },
 	{ XCB_ENTER_NOTIFY,   cb_enter },
 	{ XCB_CONFIGURE_NOTIFY, cb_configure },
+
+	/* events not yet handled */
+	{ XCB_KEY_PRESS,         cb_default },
+	{ XCB_FOCUS_IN,          cb_default },
+	{ XCB_KEYMAP_NOTIFY,     cb_default },
+	{ XCB_EXPOSE,            cb_default },
+	{ XCB_GRAPHICS_EXPOSURE, cb_default },
+	{ XCB_NO_EXPOSURE,       cb_default },
+	{ XCB_VISIBILITY_NOTIFY, cb_default },
+	{ XCB_UNMAP_NOTIFY,      cb_default },
+	{ XCB_MAP_NOTIFY,        cb_default },
+	{ XCB_MAP_REQUEST,       cb_default },
+	{ XCB_REPARENT_NOTIFY,   cb_default },
+	{ XCB_CONFIGURE_REQUEST, cb_default },
+	{ XCB_GRAVITY_NOTIFY,    cb_default },
+	{ XCB_RESIZE_REQUEST,    cb_default },
+	{ XCB_CIRCULATE_NOTIFY,  cb_default },
+	{ XCB_PROPERTY_NOTIFY,   cb_default },
+	{ XCB_SELECTION_CLEAR,   cb_default },
+	{ XCB_SELECTION_REQUEST, cb_default },
+	{ XCB_SELECTION_NOTIFY,  cb_default },
+	{ XCB_COLORMAP_NOTIFY,   cb_default },
+	{ XCB_CLIENT_MESSAGE,    cb_default },
+	{ XCB_MAPPING_NOTIFY,    cb_default },
 };
 
 xcb_window_t
@@ -128,7 +183,7 @@ static int
 cb_default(xcb_generic_event_t *ev)
 {
 	if (verbose)
-		fprintf(stderr, "event received: %d\n", ev->response_type);
+		fprintf(stderr, "event: %s\n", evname[ev->response_type]);
 
 	return 0;
 }
