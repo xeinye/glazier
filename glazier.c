@@ -201,7 +201,6 @@ cb_mouse_press(xcb_generic_event_t *ev)
 	}
 
 	wm_restack(curwid, XCB_STACK_MODE_ABOVE);
-	wm_set_focus(wid);
 
 	cursor.x = e->root_x - wm_get_attribute(curwid, ATTR_X);
 	cursor.y = e->root_y - wm_get_attribute(curwid, ATTR_Y);
