@@ -77,7 +77,7 @@ frame_window(xcb_window_t child)
 		XCB_CW_BACK_PIXEL | XCB_CW_EVENT_MASK, val);
 
 	if (verbose)
-		fprintf(stderr, "frame: 0x%08x\n", parent);
+		fprintf(stderr, "frame: 0x%08x, child: 0x%08x\n", parent, child);
 
 	xcb_reparent_window(conn, child, parent, 0, titlebar);
 	xcb_map_window(conn, parent);
