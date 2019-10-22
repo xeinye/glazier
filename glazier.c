@@ -250,6 +250,9 @@ cb_mouse_press(xcb_generic_event_t *ev)
 		curwid = e->event;
 		p = xcb_cursor_load_cursor(cx, XHAIR_MOVE);
 		break;
+	case 2:
+		xcb_kill_client(conn, get_child(e->event));
+		break;
 	case 3:
 		curwid = e->event;
 		p = xcb_cursor_load_cursor(cx, XHAIR_SIZE);
