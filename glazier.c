@@ -24,7 +24,7 @@ static int ev_callback(xcb_generic_event_t *);
 
 /* XCB events callbacks */
 static int cb_default(xcb_generic_event_t *);
-static int cb_create(xcb_generic_event_t *);
+static int cb_map(xcb_generic_event_t *);
 static int cb_destroy(xcb_generic_event_t *);
 static int cb_mouse_press(xcb_generic_event_t *);
 static int cb_mouse_release(xcb_generic_event_t *);
@@ -40,14 +40,13 @@ struct cursor_t   cursor;
 
 static const struct ev_callback_t cb[] = {
 	/* event,             function */
-	{ XCB_CREATE_NOTIFY,  cb_create },
+	{ XCB_MAP_NOTIFY,  cb_map },
 	{ XCB_DESTROY_NOTIFY, cb_destroy },
 	{ XCB_BUTTON_PRESS,   cb_mouse_press },
 	{ XCB_BUTTON_RELEASE, cb_mouse_release },
 	{ XCB_MOTION_NOTIFY,  cb_motion },
 	{ XCB_ENTER_NOTIFY,   cb_enter },
 	{ XCB_CONFIGURE_NOTIFY, cb_configure },
-	{ NO_EVENT,           cb_default },
 };
 
 xcb_window_t
@@ -89,7 +88,7 @@ frame_window(xcb_window_t child)
 xcb_window_t
 get_frame(xcb_window_t wid)
 {
-	xcb_window_t frame = wid;
+	xcb_window_t frame = scrn->root;
 	xcb_query_tree_cookie_t c;
 	xcb_query_tree_reply_t *r;
 
@@ -97,7 +96,7 @@ get_frame(xcb_window_t wid)
 		c = xcb_query_tree(conn, wid);
 		r = xcb_query_tree_reply(conn, c, NULL);
 		if (r == NULL)
-			return -1;
+			return scrn->root;
 
 		wid = r->parent;
 		free(r);
@@ -135,23 +134,26 @@ cb_default(xcb_generic_event_t *ev)
 }
 
 static int
-cb_create(xcb_generic_event_t *ev)
+cb_map(xcb_generic_event_t *ev)
 {
 	int x, y, w, h;
 	static xcb_window_t frame;
-	xcb_create_notify_event_t *e;
+	static int i = 0;
+	xcb_map_notify_event_t *e;
 
-	e = (xcb_create_notify_event_t *)ev;
-	if (e->override_redirect) {
+	i++;
+
+	e = (xcb_map_notify_event_t *)ev;
+	if (e->override_redirect)
+		return 0;
+
+	/* avoid infinite loops when creating frame window */
+	if (frame == e->window || get_frame(e->window) != scrn->root) {
 		return 0;
 	}
 
-	/* avoid infinite loops when creating frame window */
-	if (frame == e->window)
-		return 0;
-
 	if (verbose)
-		fprintf(stderr, "create: 0x%08x\n", e->window);
+		fprintf(stderr, "map: 0x%08x\n", e->window);
 
 	frame = frame_window(e->window);
 
@@ -159,7 +161,6 @@ cb_create(xcb_generic_event_t *ev)
 	w = wm_get_attribute(frame, ATTR_W);
 	h = wm_get_attribute(frame, ATTR_H);
 	wm_move(frame, ABSOLUTE, x - w/2, y - h/2);
-	wm_reg_event(e->window, XCB_EVENT_MASK_STRUCTURE_NOTIFY);
 	wm_set_focus(e->window);
 
 	return 0;
