@@ -78,30 +78,6 @@ static const struct ev_callback_t cb[] = {
 	{ XCB_MOTION_NOTIFY,  cb_motion },
 	{ XCB_ENTER_NOTIFY,   cb_enter },
 	{ XCB_CONFIGURE_NOTIFY, cb_configure },
-
-	/* events not yet handled */
-	{ XCB_KEY_PRESS,         cb_default },
-	{ XCB_FOCUS_IN,          cb_default },
-	{ XCB_KEYMAP_NOTIFY,     cb_default },
-	{ XCB_EXPOSE,            cb_default },
-	{ XCB_GRAPHICS_EXPOSURE, cb_default },
-	{ XCB_NO_EXPOSURE,       cb_default },
-	{ XCB_VISIBILITY_NOTIFY, cb_default },
-	{ XCB_UNMAP_NOTIFY,      cb_default },
-	{ XCB_MAP_NOTIFY,        cb_default },
-	{ XCB_MAP_REQUEST,       cb_default },
-	{ XCB_REPARENT_NOTIFY,   cb_default },
-	{ XCB_CONFIGURE_REQUEST, cb_default },
-	{ XCB_GRAVITY_NOTIFY,    cb_default },
-	{ XCB_RESIZE_REQUEST,    cb_default },
-	{ XCB_CIRCULATE_NOTIFY,  cb_default },
-	{ XCB_PROPERTY_NOTIFY,   cb_default },
-	{ XCB_SELECTION_CLEAR,   cb_default },
-	{ XCB_SELECTION_REQUEST, cb_default },
-	{ XCB_SELECTION_NOTIFY,  cb_default },
-	{ XCB_COLORMAP_NOTIFY,   cb_default },
-	{ XCB_CLIENT_MESSAGE,    cb_default },
-	{ XCB_MAPPING_NOTIFY,    cb_default },
 };
 
 xcb_window_t
@@ -182,8 +158,11 @@ get_child(xcb_window_t wid)
 static int
 cb_default(xcb_generic_event_t *ev)
 {
-	if (verbose)
+	if (verbose && evname[ev->response_type]) {
 		fprintf(stderr, "event: %s\n", evname[ev->response_type]);
+	} else if (verbose) {
+		fprintf(stderr, "event: %d\n", ev->response_type);
+	}
 
 	return 0;
 }
