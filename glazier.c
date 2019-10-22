@@ -46,6 +46,7 @@ static const struct ev_callback_t cb[] = {
 	{ XCB_BUTTON_RELEASE, cb_mouse_release },
 	{ XCB_MOTION_NOTIFY,  cb_motion },
 	{ XCB_ENTER_NOTIFY,   cb_enter },
+	{ XCB_CONFIGURE_NOTIFY, cb_configure },
 	{ NO_EVENT,           cb_default },
 };
 
@@ -332,6 +333,34 @@ cb_enter(xcb_generic_event_t *ev)
 	} else {
 		wm_set_focus(e->event);
 	}
+
+	return 0;
+}
+
+static int
+cb_configure(xcb_generic_event_t *ev)
+{
+	int x, y;
+	xcb_window_t frame;
+	xcb_configure_notify_event_t *e;
+
+	e = (xcb_configure_notify_event_t *)ev;
+
+	if (e->window == e->event || e->event == scrn->root || e->override_redirect || curwid != scrn->root)
+		return 0;
+
+	frame = get_frame(e->window);
+
+	if (verbose)
+		fprintf(stderr, "configure: 0x%08x (0x%08x: %dx%d+%d+%d)\n",
+			frame, e->window,
+			e->width, e->height,
+			e->x, e->y);
+
+	x = wm_get_attribute(frame, ATTR_X);
+	y = wm_get_attribute(frame, ATTR_Y);
+	wm_teleport(e->window, 0, titlebar, e->width, e->height);
+	wm_teleport(get_frame(e->window), x + e->x, y + e->y + titlebar, e->width, e->height + titlebar);
 
 	return 0;
 }
