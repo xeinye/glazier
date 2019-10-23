@@ -21,6 +21,7 @@ struct cursor_t {
 	int b;
 };
 
+static int takeover();
 static int ev_callback(xcb_generic_event_t *);
 
 /* XCB events callbacks */
@@ -92,6 +93,46 @@ usage(char *name)
 }
 
 static int
+adopt(xcb_window_t wid)
+{
+	int x, y, w, h;
+
+	if (!wm_is_mapped(wid)) {
+		w = wm_get_attribute(wid, ATTR_W);
+		h = wm_get_attribute(wid, ATTR_H);
+		wm_get_cursor(0, scrn->root, &x, &y);
+		wm_teleport(wid, x - w/2, y - h/2, w, h);
+	} else {
+		wm_set_border(border, border_color, wid);
+	}
+	wm_reg_event(wid, XCB_EVENT_MASK_ENTER_WINDOW | XCB_EVENT_MASK_STRUCTURE_NOTIFY);
+
+	return 0;
+}
+
+static int
+takeover()
+{
+	int i, c, n;
+	xcb_window_t *orphans;
+
+	n = wm_get_windows(scrn->root, &orphans);
+
+	for (i = 0, c = 0; i < n; i++) {
+		if (wm_is_ignored(orphans[i]))
+			continue;
+
+		adopt(orphans[i]);
+		c++;
+	}
+
+	if (verbose)
+		fprintf(stderr, "Adopted %d windows\n", c);
+
+	return n;
+}
+
+static int
 cb_default(xcb_generic_event_t *ev)
 {
 	if (verbose && XEV(ev)) {
@@ -156,7 +197,7 @@ cb_mouse_press(xcb_generic_event_t *ev)
 	e = (xcb_button_press_event_t *)ev;
 
 	/* ignore some motion events if they happen too often */
-	if (e->time - lasttime < 32)
+	if (e->time - lasttime < 8)
 		return 0;
 
 	if (verbose)
@@ -167,7 +208,7 @@ cb_mouse_press(xcb_generic_event_t *ev)
 		exit(1);
 	}
 
-	wm_restack(e->event, XCB_STACK_MODE_ABOVE);
+	wm_restack(e->child, XCB_STACK_MODE_ABOVE);
 
 	cursor.x = e->root_x - wm_get_attribute(e->child, ATTR_X);
 	cursor.y = e->root_y - wm_get_attribute(e->child, ATTR_Y);
@@ -334,6 +375,7 @@ cb_configreq(xcb_generic_event_t *ev)
 			e->x, e->y);
 
 	wm_teleport(e->window, e->x, e->y, e->width, e->height);
+	wm_restack(e->window, e->stack_mode);
 
 	return 0;
 }
@@ -393,6 +435,8 @@ main (int argc, char *argv[])
 	xcb_grab_button(conn, 0, scrn->root, XCB_EVENT_MASK_BUTTON_PRESS,
 		XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC, scrn->root,
 		XCB_NONE, XCB_BUTTON_INDEX_ANY, modifier);
+
+	takeover();
 
 	for (;;) {
 		xcb_flush(conn);
