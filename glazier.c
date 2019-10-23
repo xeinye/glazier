@@ -191,7 +191,7 @@ cb_mapreq(xcb_generic_event_t *ev)
 		return 0;
 
 	if (verbose)
-		fprintf(stderr, "%s: 0x%08x\n", XEV(e), e->window);
+		fprintf(stderr, "%s 0x%08x\n", XEV(e), e->window);
 
 	frame = frame_window(e->window);
 
@@ -507,8 +507,7 @@ main (int argc, char *argv[])
 		| XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT;
 
 	if (!wm_reg_event(scrn->root, mask)) {
-		if (verbose)
-			fprintf(stderr, "Cannot redirect root window event.\n");
+		fprintf(stderr, "Cannot redirect root window event.\n");
 		return -1;
 	}
 
