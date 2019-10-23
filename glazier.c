@@ -32,6 +32,7 @@ static int cb_mouse_press(xcb_generic_event_t *);
 static int cb_mouse_release(xcb_generic_event_t *);
 static int cb_motion(xcb_generic_event_t *);
 static int cb_enter(xcb_generic_event_t *);
+static int cb_focus(xcb_generic_event_t *);
 static int cb_configure(xcb_generic_event_t *);
 static int cb_configreq(xcb_generic_event_t *);
 
@@ -52,6 +53,7 @@ static const char *evname[] = {
 	[XCB_CONFIGURE_NOTIFY] = "CONFIGURE_NOTIFY",
 	[XCB_KEY_PRESS] = "KEY_PRESS",
 	[XCB_FOCUS_IN] = "FOCUS_IN",
+	[XCB_FOCUS_OUT] = "FOCUS_OUT",
 	[XCB_KEYMAP_NOTIFY] = "KEYMAP_NOTIFY",
 	[XCB_EXPOSE] = "EXPOSE",
 	[XCB_GRAPHICS_EXPOSURE] = "GRAPHICS_EXPOSURE",
@@ -82,6 +84,8 @@ static const struct ev_callback_t cb[] = {
 	{ XCB_BUTTON_RELEASE, cb_mouse_release },
 	{ XCB_MOTION_NOTIFY,  cb_motion },
 	{ XCB_ENTER_NOTIFY,   cb_enter },
+	{ XCB_FOCUS_IN,       cb_focus },
+	{ XCB_FOCUS_OUT,      cb_focus },
 	{ XCB_CONFIGURE_NOTIFY, cb_configure },
 	{ XCB_CONFIGURE_REQUEST, cb_configreq },
 };
@@ -105,7 +109,9 @@ adopt(xcb_window_t wid)
 	} else {
 		wm_set_border(border, border_color, wid);
 	}
-	wm_reg_event(wid, XCB_EVENT_MASK_ENTER_WINDOW | XCB_EVENT_MASK_STRUCTURE_NOTIFY);
+	wm_reg_event(wid, XCB_EVENT_MASK_ENTER_WINDOW
+		| XCB_EVENT_MASK_FOCUS_CHANGE
+		| XCB_EVENT_MASK_STRUCTURE_NOTIFY);
 
 	return 0;
 }
@@ -178,8 +184,8 @@ cb_mapreq(xcb_generic_event_t *ev)
 		fprintf(stderr, "%s 0x%08x\n", XEV(e), e->window);
 
 	wm_remap(e->window, MAP);
-	wm_set_focus(e->window);
 	wm_set_border(border, border_color, e->window);
+	wm_set_focus(e->window);
 	return 0;
 }
 
@@ -338,6 +344,28 @@ cb_enter(xcb_generic_event_t *ev)
 		fprintf(stderr, "%s 0x%08x\n", XEV(e), e->event);
 
 	wm_set_focus(e->event);
+
+	return 0;
+}
+
+static int
+cb_focus(xcb_generic_event_t *ev)
+{
+	xcb_focus_in_event_t *e;
+
+	e = (xcb_focus_in_event_t *)ev;
+
+	if (verbose)
+		fprintf(stderr, "%s 0x%08x\n", XEV(e), e->event);
+
+	switch(e->response_type & ~0x80) {
+	case XCB_FOCUS_IN:
+		wm_set_border(border, border_color_active, e->event);
+		break;
+	case XCB_FOCUS_OUT:
+		wm_set_border(border, border_color, e->event);
+		break;
+	}
 
 	return 0;
 }
