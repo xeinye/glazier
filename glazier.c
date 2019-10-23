@@ -153,7 +153,6 @@ cb_default(xcb_generic_event_t *ev)
 static int
 cb_create(xcb_generic_event_t *ev)
 {
-	int x, y, w, h;
 	xcb_create_notify_event_t *e;
 
 	e = (xcb_create_notify_event_t *)ev;
@@ -164,11 +163,7 @@ cb_create(xcb_generic_event_t *ev)
 	if (verbose)
 		fprintf(stderr, "%s 0x%08x\n", XEV(e), e->window);
 
-	w = wm_get_attribute(e->window, ATTR_W);
-	h = wm_get_attribute(e->window, ATTR_H);
-	wm_get_cursor(0, scrn->root, &x, &y);
-	wm_teleport(e->window, x - w/2, y - h/2, w, h);
-	wm_reg_event(e->window, XCB_EVENT_MASK_ENTER_WINDOW | XCB_EVENT_MASK_STRUCTURE_NOTIFY);
+	adopt(e->window);
 
 	return 0;
 }
