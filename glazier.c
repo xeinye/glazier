@@ -121,6 +121,7 @@ frame_window(xcb_window_t child)
 		XCB_CW_BACK_PIXEL | XCB_CW_EVENT_MASK, val);
 
 	xcb_reparent_window(conn, child, parent, 0, titlebar);
+	xcb_change_save_set(conn, XCB_SET_MODE_INSERT, child);
 	xcb_map_window(conn, parent);
 
 	return parent;
