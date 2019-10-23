@@ -26,6 +26,7 @@ static int ev_callback(xcb_generic_event_t *);
 /* XCB events callbacks */
 static int cb_default(xcb_generic_event_t *);
 static int cb_mapreq(xcb_generic_event_t *);
+static int cb_unmap(xcb_generic_event_t *);
 static int cb_destroy(xcb_generic_event_t *);
 static int cb_mouse_press(xcb_generic_event_t *);
 static int cb_mouse_release(xcb_generic_event_t *);
@@ -76,6 +77,7 @@ static const char *evname[] = {
 static const struct ev_callback_t cb[] = {
 	/* event,             function */
 	{ XCB_MAP_REQUEST,    cb_mapreq },
+	{ XCB_UNMAP_NOTIFY,   cb_unmap },
 	{ XCB_DESTROY_NOTIFY, cb_destroy },
 	{ XCB_BUTTON_PRESS,   cb_mouse_press },
 	{ XCB_BUTTON_RELEASE, cb_mouse_release },
@@ -201,6 +203,25 @@ cb_mapreq(xcb_generic_event_t *ev)
 	wm_move(frame, ABSOLUTE, x - w/2, y - h/2);
 	xcb_map_window(conn, e->window);
 	wm_set_focus(e->window);
+
+	return 0;
+}
+
+static int
+cb_unmap(xcb_generic_event_t *ev)
+{
+	int x, y;
+	xcb_unmap_notify_event_t *e;
+
+	e = (xcb_unmap_notify_event_t *)ev;
+
+	if (verbose)
+		fprintf(stderr, "%s 0x%08x\n", XEV(e), e->window);
+
+	x = wm_get_attribute(e->event, ATTR_X);
+	y = wm_get_attribute(e->event, ATTR_Y);
+	xcb_reparent_window(conn, e->window, scrn->root, x, y + titlebar);
+	xcb_destroy_window(conn, e->event);
 
 	return 0;
 }
