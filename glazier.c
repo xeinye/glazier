@@ -25,6 +25,7 @@ static int ev_callback(xcb_generic_event_t *);
 
 /* XCB events callbacks */
 static int cb_default(xcb_generic_event_t *);
+static int cb_create(xcb_generic_event_t *);
 static int cb_mapreq(xcb_generic_event_t *);
 static int cb_mouse_press(xcb_generic_event_t *);
 static int cb_mouse_release(xcb_generic_event_t *);
@@ -74,6 +75,7 @@ static const char *evname[] = {
 
 static const struct ev_callback_t cb[] = {
 	/* event,             function */
+	{ XCB_CREATE_NOTIFY, cb_create },
 	{ XCB_MAP_REQUEST,    cb_mapreq },
 	{ XCB_BUTTON_PRESS,   cb_mouse_press },
 	{ XCB_BUTTON_RELEASE, cb_mouse_release },
@@ -102,6 +104,29 @@ cb_default(xcb_generic_event_t *ev)
 }
 
 static int
+cb_create(xcb_generic_event_t *ev)
+{
+	int x, y, w, h;
+	xcb_create_notify_event_t *e;
+
+	e = (xcb_create_notify_event_t *)ev;
+
+	if (e->override_redirect)
+		return 0;
+
+	if (verbose)
+		fprintf(stderr, "%s 0x%08x\n", XEV(e), e->window);
+
+	w = wm_get_attribute(e->window, ATTR_W);
+	h = wm_get_attribute(e->window, ATTR_H);
+	wm_get_cursor(0, scrn->root, &x, &y);
+	wm_teleport(e->window, x - w/2, y - h/2, w, h);
+	wm_reg_event(e->window, XCB_EVENT_MASK_ENTER_WINDOW | XCB_EVENT_MASK_STRUCTURE_NOTIFY);
+
+	return 0;
+}
+
+static int
 cb_mapreq(xcb_generic_event_t *ev)
 {
 	xcb_map_request_event_t *e;
@@ -114,8 +139,6 @@ cb_mapreq(xcb_generic_event_t *ev)
 	wm_remap(e->window, MAP);
 	wm_set_focus(e->window);
 	wm_set_border(border, border_color, e->window);
-	wm_reg_event(e->window, XCB_EVENT_MASK_ENTER_WINDOW | XCB_EVENT_MASK_STRUCTURE_NOTIFY);
-
 	return 0;
 }
 
