@@ -4,8 +4,7 @@
 
 /* window borders and titlebar */
 int border = 2;
-int titlebar = 32;
-int titlebar_color = 0xdeadca7;
+int border_color = 0xdeadca7;
 
 /* move/resize step amound in pixels */
 int move_step = 8;

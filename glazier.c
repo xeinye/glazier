@@ -26,8 +26,6 @@ static int ev_callback(xcb_generic_event_t *);
 /* XCB events callbacks */
 static int cb_default(xcb_generic_event_t *);
 static int cb_mapreq(xcb_generic_event_t *);
-static int cb_unmap(xcb_generic_event_t *);
-static int cb_destroy(xcb_generic_event_t *);
 static int cb_mouse_press(xcb_generic_event_t *);
 static int cb_mouse_release(xcb_generic_event_t *);
 static int cb_motion(xcb_generic_event_t *);
@@ -77,8 +75,6 @@ static const char *evname[] = {
 static const struct ev_callback_t cb[] = {
 	/* event,             function */
 	{ XCB_MAP_REQUEST,    cb_mapreq },
-	{ XCB_UNMAP_NOTIFY,   cb_unmap },
-	{ XCB_DESTROY_NOTIFY, cb_destroy },
 	{ XCB_BUTTON_PRESS,   cb_mouse_press },
 	{ XCB_BUTTON_RELEASE, cb_mouse_release },
 	{ XCB_MOTION_NOTIFY,  cb_motion },
@@ -91,78 +87,6 @@ void
 usage(char *name)
 {
 	fprintf(stderr, "usage: %s [-vh]\n", name);
-}
-
-xcb_window_t
-frame_window(xcb_window_t child)
-{
-	int x, y, w, h, mask, val[3];
-	xcb_window_t parent;
-
-	x = wm_get_attribute(child, ATTR_X);
-	y = wm_get_attribute(child, ATTR_Y) - titlebar;
-	w = wm_get_attribute(child, ATTR_W);
-	h = wm_get_attribute(child, ATTR_H) + titlebar;
-
-	parent = xcb_generate_id(conn);
-	mask = XCB_CW_BACK_PIXEL | XCB_CW_BORDER_PIXEL | XCB_CW_EVENT_MASK;
-	val[0] = titlebar_color;
-	val[1] = titlebar_color;
-	val[2] =  XCB_EVENT_MASK_EXPOSURE
-		| XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY
-		| XCB_EVENT_MASK_ENTER_WINDOW
-		| XCB_EVENT_MASK_BUTTON_PRESS
-		| XCB_EVENT_MASK_BUTTON_RELEASE
-		| XCB_EVENT_MASK_BUTTON_MOTION;
-
-	xcb_create_window(conn, scrn->root_depth, parent, scrn->root,
-		x, y, w, h, border, XCB_WINDOW_CLASS_INPUT_OUTPUT,
-		scrn->root_visual, mask, val);
-
-	xcb_reparent_window(conn, child, parent, 0, titlebar);
-	xcb_change_save_set(conn, XCB_SET_MODE_INSERT, child);
-	xcb_map_window(conn, parent);
-
-	return parent;
-}
-
-xcb_window_t
-get_frame(xcb_window_t wid)
-{
-	xcb_window_t frame = scrn->root;
-	xcb_query_tree_cookie_t c;
-	xcb_query_tree_reply_t *r;
-
-	for (;;) {
-		c = xcb_query_tree(conn, wid);
-		r = xcb_query_tree_reply(conn, c, NULL);
-		if (r == NULL)
-			return scrn->root;
-
-		wid = r->parent;
-		free(r);
-
-		if (wid == scrn->root)
-			break;
-
-		frame = wid;
-	}
-
-	return frame;
-}
-
-xcb_window_t
-get_child(xcb_window_t wid)
-{
-	xcb_window_t child, *children;
-
-	if (wm_get_windows(wid, &children) != 1)
-		return -1;
-
-	child = children[0];
-	free(children);
-
-	return child;
 }
 
 static int
@@ -180,61 +104,16 @@ cb_default(xcb_generic_event_t *ev)
 static int
 cb_mapreq(xcb_generic_event_t *ev)
 {
-	int x, y, w, h;
-	static xcb_window_t frame;
 	xcb_map_request_event_t *e;
 
 	e = (xcb_map_request_event_t *)ev;
 
-	/* avoid infinite loops when creating frame window */
-	if (frame == e->window || get_frame(e->window) != scrn->root)
-		return 0;
-
 	if (verbose)
 		fprintf(stderr, "%s 0x%08x\n", XEV(e), e->window);
 
-	frame = frame_window(e->window);
-
-	w = wm_get_attribute(frame, ATTR_W);
-	h = wm_get_attribute(frame, ATTR_H);
-	wm_get_cursor(0, scrn->root, &x, &y);
-
-	wm_move(frame, ABSOLUTE, x - w/2, y - h/2);
-	xcb_map_window(conn, e->window);
+	wm_remap(e->window, MAP);
 	wm_set_focus(e->window);
-
-	return 0;
-}
-
-static int
-cb_unmap(xcb_generic_event_t *ev)
-{
-	int x, y;
-	xcb_unmap_notify_event_t *e;
-
-	e = (xcb_unmap_notify_event_t *)ev;
-
-	if (verbose)
-		fprintf(stderr, "%s 0x%08x\n", XEV(e), e->window);
-
-	x = wm_get_attribute(e->event, ATTR_X);
-	y = wm_get_attribute(e->event, ATTR_Y);
-	xcb_reparent_window(conn, e->window, scrn->root, x, y + titlebar);
-	xcb_destroy_window(conn, e->event);
-
-	return 0;
-}
-
-static int
-cb_destroy(xcb_generic_event_t *ev)
-{
-	xcb_create_notify_event_t *e;
-
-	e = (xcb_create_notify_event_t *)ev;
-	if (verbose)
-		fprintf(stderr, "%s 0x%08x 0x%08x\n", XEV(e), e->window, e->parent);
-
-	xcb_destroy_window(conn, e->parent);
+	wm_set_border(border, border_color, e->window);
 
 	return 0;
 }
@@ -277,7 +156,7 @@ cb_mouse_press(xcb_generic_event_t *ev)
 		p = xcb_cursor_load_cursor(cx, XHAIR_MOVE);
 		break;
 	case 2:
-		xcb_kill_client(conn, get_child(e->event));
+		xcb_kill_client(conn, e->event);
 		break;
 	case 3:
 		curwid = e->event;
@@ -285,19 +164,17 @@ cb_mouse_press(xcb_generic_event_t *ev)
 		break;
 	case 4:
 		x = wm_get_attribute(e->event, ATTR_X) - move_step/2;
-		y = wm_get_attribute(e->event, ATTR_Y);
+		y = wm_get_attribute(e->event, ATTR_Y) - move_step/2;
 		w = wm_get_attribute(e->event, ATTR_W) + move_step;
 		h = wm_get_attribute(e->event, ATTR_H) + move_step;
 		wm_teleport(e->event, x, y, w, h);
-		wm_teleport(get_child(e->event), 0, titlebar, w, h - titlebar);
 		break;
 	case 5:
 		x = wm_get_attribute(e->event, ATTR_X) + move_step/2;
-		y = wm_get_attribute(e->event, ATTR_Y);
+		y = wm_get_attribute(e->event, ATTR_Y) + move_step/2;
 		w = wm_get_attribute(e->event, ATTR_W) - move_step;
 		h = wm_get_attribute(e->event, ATTR_H) - move_step;
 		wm_teleport(e->event, x, y, w, h);
-		wm_teleport(get_child(e->event), 0, titlebar, w, h - titlebar);
 		break;
 	default:
 		return 1;
@@ -331,7 +208,7 @@ cb_mouse_release(xcb_generic_event_t *ev)
 
 	e = (xcb_button_release_event_t *)ev;
 	if (verbose)
-		fprintf(stderr, "%s 0x%08x\n", XEV(e), e->child);
+		fprintf(stderr, "%s 0x%08x\n", XEV(e), e->event);
 
 	if (xcb_cursor_context_new(conn, scrn, &cx) < 0) {
 		fprintf(stderr, "cannot instantiate cursor\n");
@@ -339,7 +216,7 @@ cb_mouse_release(xcb_generic_event_t *ev)
 	}
 
 	p = xcb_cursor_load_cursor(cx, XHAIR_DFLT);
-	xcb_change_window_attributes(conn, e->child, XCB_CW_CURSOR, &p);
+	xcb_change_window_attributes(conn, e->event, XCB_CW_CURSOR, &p);
 	xcb_ungrab_pointer(conn, XCB_CURRENT_TIME);
 
 	xcb_cursor_context_free(cx);
@@ -380,9 +257,6 @@ cb_motion(xcb_generic_event_t *ev)
 		break;
 	case 3:
 		wm_resize(curwid, ABSOLUTE, x, y);
-		x = wm_get_attribute(curwid, ATTR_W);
-		y = wm_get_attribute(curwid, ATTR_H);
-		wm_resize(get_child(curwid), ABSOLUTE, x, y);
 		break;
 	}
 
@@ -392,7 +266,6 @@ cb_motion(xcb_generic_event_t *ev)
 static int
 cb_enter(xcb_generic_event_t *ev)
 {
-	xcb_window_t *child;
 	xcb_enter_notify_event_t *e;
 
 	e = (xcb_enter_notify_event_t *)ev;
@@ -400,12 +273,7 @@ cb_enter(xcb_generic_event_t *ev)
 	if (verbose)
 		fprintf(stderr, "%s 0x%08x\n", XEV(e), e->event);
 
-	if (wm_get_windows(e->event, &child) == 1) {
-		wm_set_focus(child[0]);
-		free(child);
-	} else {
-		wm_set_focus(e->event);
-	}
+	wm_set_focus(e->event);
 
 	return 0;
 }
@@ -413,29 +281,18 @@ cb_enter(xcb_generic_event_t *ev)
 static int
 cb_configure(xcb_generic_event_t *ev)
 {
-	int x, y;
-	xcb_window_t frame;
 	xcb_configure_notify_event_t *e;
 
 	e = (xcb_configure_notify_event_t *)ev;
 
-	if (e->window == e->event || e->event == scrn->root || e->override_redirect || curwid != scrn->root)
-		return 0;
-
-	frame = get_frame(e->window);
-	if (frame == scrn->root)
+	if (e->override_redirect)
 		return 0;
 
 	if (verbose)
-		fprintf(stderr, "%s 0x%08x 0x%08x:%dx%d+%d+%d\n",
-			XEV(e), frame, e->window,
-			e->width, e->height,
-			e->x, e->y);
+		fprintf(stderr, "%s 0x%08x %dx%d+%d+%d\n",
+			XEV(e), e->event, e->width, e->height, e->x, e->y);
 
-	x = wm_get_attribute(frame, ATTR_X);
-	y = wm_get_attribute(frame, ATTR_Y);
-	wm_teleport(e->window, 0, titlebar, e->width, e->height);
-	wm_teleport(get_frame(e->window), x + e->x, y + e->y - titlebar, e->width, e->height + titlebar);
+	wm_teleport(e->window, e->x, e->y, e->width, e->height);
 
 	return 0;
 }
