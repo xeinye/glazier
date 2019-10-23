@@ -114,6 +114,7 @@ cb_mapreq(xcb_generic_event_t *ev)
 	wm_remap(e->window, MAP);
 	wm_set_focus(e->window);
 	wm_set_border(border, border_color, e->window);
+	wm_reg_event(e->window, XCB_EVENT_MASK_ENTER_WINDOW | XCB_EVENT_MASK_STRUCTURE_NOTIFY);
 
 	return 0;
 }
@@ -136,7 +137,7 @@ cb_mouse_press(xcb_generic_event_t *ev)
 		return 0;
 
 	if (verbose)
-		fprintf(stderr, "%s 0x%08x\n", XEV(e), e->event);
+		fprintf(stderr, "%s 0x%08x %d\n", XEV(e), e->event, e->detail);
 
 	if (xcb_cursor_context_new(conn, scrn, &cx) < 0) {
 		fprintf(stderr, "cannot instantiate cursor\n");
@@ -145,44 +146,43 @@ cb_mouse_press(xcb_generic_event_t *ev)
 
 	wm_restack(e->event, XCB_STACK_MODE_ABOVE);
 
-	cursor.x = e->root_x - wm_get_attribute(e->event, ATTR_X);
-	cursor.y = e->root_y - wm_get_attribute(e->event, ATTR_Y);
+	cursor.x = e->root_x - wm_get_attribute(e->child, ATTR_X);
+	cursor.y = e->root_y - wm_get_attribute(e->child, ATTR_Y);
 	cursor.b = e->detail;
 	lasttime = e->time;
 
 	switch(e->detail) {
 	case 1:
-		curwid = e->event;
+		curwid = e->child;
 		p = xcb_cursor_load_cursor(cx, XHAIR_MOVE);
 		break;
 	case 2:
-		xcb_kill_client(conn, e->event);
+		xcb_kill_client(conn, e->child);
 		break;
 	case 3:
-		curwid = e->event;
+		curwid = e->child;
 		p = xcb_cursor_load_cursor(cx, XHAIR_SIZE);
 		break;
 	case 4:
-		x = wm_get_attribute(e->event, ATTR_X) - move_step/2;
-		y = wm_get_attribute(e->event, ATTR_Y) - move_step/2;
-		w = wm_get_attribute(e->event, ATTR_W) + move_step;
-		h = wm_get_attribute(e->event, ATTR_H) + move_step;
-		wm_teleport(e->event, x, y, w, h);
+		x = wm_get_attribute(e->child, ATTR_X) - move_step/2;
+		y = wm_get_attribute(e->child, ATTR_Y) - move_step/2;
+		w = wm_get_attribute(e->child, ATTR_W) + move_step;
+		h = wm_get_attribute(e->child, ATTR_H) + move_step;
+		wm_teleport(e->child, x, y, w, h);
 		break;
 	case 5:
-		x = wm_get_attribute(e->event, ATTR_X) + move_step/2;
-		y = wm_get_attribute(e->event, ATTR_Y) + move_step/2;
-		w = wm_get_attribute(e->event, ATTR_W) - move_step;
-		h = wm_get_attribute(e->event, ATTR_H) - move_step;
-		wm_teleport(e->event, x, y, w, h);
+		x = wm_get_attribute(e->child, ATTR_X) + move_step/2;
+		y = wm_get_attribute(e->child, ATTR_Y) + move_step/2;
+		w = wm_get_attribute(e->child, ATTR_W) - move_step;
+		h = wm_get_attribute(e->child, ATTR_H) - move_step;
+		wm_teleport(e->child, x, y, w, h);
 		break;
 	default:
 		return 1;
 	}
 
 	/* grab pointer and watch motion events */
-	c = xcb_grab_pointer(conn, 0, scrn->root,
-		XCB_EVENT_MASK_BUTTON_PRESS |
+	c = xcb_grab_pointer(conn, 1, scrn->root,
 		XCB_EVENT_MASK_BUTTON_RELEASE |
 		XCB_EVENT_MASK_BUTTON_MOTION,
 		XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC,
@@ -208,7 +208,7 @@ cb_mouse_release(xcb_generic_event_t *ev)
 
 	e = (xcb_button_release_event_t *)ev;
 	if (verbose)
-		fprintf(stderr, "%s 0x%08x\n", XEV(e), e->event);
+		fprintf(stderr, "%s 0x%08x %d\n", XEV(e), e->event, e->detail);
 
 	if (xcb_cursor_context_new(conn, scrn, &cx) < 0) {
 		fprintf(stderr, "cannot instantiate cursor\n");
@@ -239,7 +239,7 @@ cb_motion(xcb_generic_event_t *ev)
 	e = (xcb_motion_notify_event_t *)ev;
 
 	/* ignore some motion events if they happen too often */
-	if (e->time - lasttime < 32 || curwid == scrn->root)
+	if (e->time - lasttime < 32)
 		return 0;
 
 	if (verbose)
@@ -249,13 +249,13 @@ cb_motion(xcb_generic_event_t *ev)
 	y = e->root_y;
 	lasttime = e->time;
 
-	switch (cursor.b) {
-	case 1:
+	switch (e->state & (XCB_BUTTON_MASK_1|XCB_BUTTON_MASK_3)) {
+	case XCB_BUTTON_MASK_1:
 		x -= cursor.x;
 		y -= cursor.y;
 		wm_move(curwid, ABSOLUTE, x, y);
 		break;
-	case 3:
+	case XCB_BUTTON_MASK_3:
 		wm_resize(curwid, ABSOLUTE, x, y);
 		break;
 	}
@@ -366,6 +366,10 @@ main (int argc, char *argv[])
 		fprintf(stderr, "Cannot redirect root window event.\n");
 		return -1;
 	}
+
+	xcb_grab_button(conn, 0, scrn->root, XCB_EVENT_MASK_BUTTON_PRESS,
+		XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC, scrn->root,
+		XCB_NONE, XCB_BUTTON_INDEX_ANY, modifier);
 
 	for (;;) {
 		xcb_flush(conn);
