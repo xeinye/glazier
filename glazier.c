@@ -96,20 +96,19 @@ usage(char *name)
 xcb_window_t
 frame_window(xcb_window_t child)
 {
-	int b,x,y,w,h,val[2];
+	int x, y, w, h, mask, val[3];
 	xcb_window_t parent;
 
-	val[0] = titlebar_color;
-
-	b = 0;
 	x = wm_get_attribute(child, ATTR_X);
 	y = wm_get_attribute(child, ATTR_Y) - titlebar;
 	w = wm_get_attribute(child, ATTR_W);
 	h = wm_get_attribute(child, ATTR_H) + titlebar;
 
 	parent = xcb_generate_id(conn);
+	mask = XCB_CW_BACK_PIXEL | XCB_CW_BORDER_PIXEL | XCB_CW_EVENT_MASK;
 	val[0] = titlebar_color;
-	val[1] =  XCB_EVENT_MASK_EXPOSURE
+	val[1] = titlebar_color;
+	val[2] =  XCB_EVENT_MASK_EXPOSURE
 		| XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY
 		| XCB_EVENT_MASK_ENTER_WINDOW
 		| XCB_EVENT_MASK_BUTTON_PRESS
@@ -117,8 +116,8 @@ frame_window(xcb_window_t child)
 		| XCB_EVENT_MASK_BUTTON_MOTION;
 
 	xcb_create_window(conn, scrn->root_depth, parent, scrn->root,
-		x, y, w, h, b, XCB_WINDOW_CLASS_INPUT_OUTPUT, scrn->root_visual,
-		XCB_CW_BACK_PIXEL | XCB_CW_EVENT_MASK, val);
+		x, y, w, h, border, XCB_WINDOW_CLASS_INPUT_OUTPUT,
+		scrn->root_visual, mask, val);
 
 	xcb_reparent_window(conn, child, parent, 0, titlebar);
 	xcb_change_save_set(conn, XCB_SET_MODE_INSERT, child);
@@ -200,7 +199,6 @@ cb_mapreq(xcb_generic_event_t *ev)
 	h = wm_get_attribute(frame, ATTR_H);
 	wm_get_cursor(0, scrn->root, &x, &y);
 
-	wm_set_border(border, titlebar_color, frame);
 	wm_move(frame, ABSOLUTE, x - w/2, y - h/2);
 	xcb_map_window(conn, e->window);
 	wm_set_focus(e->window);
