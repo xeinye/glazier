@@ -24,6 +24,7 @@ struct cursor_t {
 void usage(char *);
 static int takeover();
 static int adopt(xcb_window_t);
+static int outline(xcb_drawable_t, int, int, int, int, int);
 static int ev_callback(xcb_generic_event_t *);
 
 /* XCB events callbacks */
@@ -136,6 +137,43 @@ takeover()
 		fprintf(stderr, "Adopted %d windows\n", c);
 
 	return n;
+}
+
+static int
+outline(xcb_drawable_t wid, int x, int y, int w, int h, int clear)
+{
+	int mask, val[3];
+	static int X = 0, Y = 0, W = 0, H = 0;
+	xcb_gcontext_t gc;
+	xcb_rectangle_t r;
+
+	gc = xcb_generate_id(conn);
+	mask = XCB_GC_FUNCTION | XCB_GC_LINE_WIDTH | XCB_GC_SUBWINDOW_MODE;
+	val[0] = XCB_GX_INVERT;
+	val[1] = 0;
+	val[2] = XCB_SUBWINDOW_MODE_INCLUDE_INFERIORS;
+	xcb_create_gc(conn, gc, wid, mask, val);
+
+	/* redraw last rectangle to clear it */
+	r.x = X;
+	r.y = Y;
+	r.width = W;
+	r.height = H;
+	xcb_poly_rectangle(conn, wid, gc, 1, &r);
+
+	if (clear) {
+		X = Y = W = H = 0;
+		return 0;
+	}
+
+	/* draw rectangle and save its coordinates for later removal */
+	X = r.x = x;
+	Y = r.y = y;
+	W = r.width = w;
+	H = r.height = h;
+	xcb_poly_rectangle(conn, wid, gc, 1, &r);
+	
+	return 0;
 }
 
 static int
