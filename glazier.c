@@ -347,6 +347,9 @@ cb_enter(xcb_generic_event_t *ev)
 
 	e = (xcb_enter_notify_event_t *)ev;
 
+	if (cursor.b)
+		return 0;
+
 	if (verbose)
 		fprintf(stderr, "%s 0x%08x\n", XEV(e), e->event);
 
