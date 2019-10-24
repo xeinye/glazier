@@ -33,7 +33,6 @@ static int cb_mouse_release(xcb_generic_event_t *);
 static int cb_motion(xcb_generic_event_t *);
 static int cb_enter(xcb_generic_event_t *);
 static int cb_focus(xcb_generic_event_t *);
-static int cb_configure(xcb_generic_event_t *);
 static int cb_configreq(xcb_generic_event_t *);
 
 int verbose = 0;
@@ -86,7 +85,6 @@ static const struct ev_callback_t cb[] = {
 	{ XCB_ENTER_NOTIFY,   cb_enter },
 	{ XCB_FOCUS_IN,       cb_focus },
 	{ XCB_FOCUS_OUT,      cb_focus },
-	{ XCB_CONFIGURE_NOTIFY, cb_configure },
 	{ XCB_CONFIGURE_REQUEST, cb_configreq },
 };
 
@@ -373,23 +371,6 @@ cb_focus(xcb_generic_event_t *ev)
 		wm_set_border(border, border_color, e->event);
 		break;
 	}
-
-	return 0;
-}
-
-static int
-cb_configure(xcb_generic_event_t *ev)
-{
-	xcb_configure_notify_event_t *e;
-
-	e = (xcb_configure_notify_event_t *)ev;
-
-	if (e->override_redirect)
-		return 0;
-
-	if (verbose)
-		fprintf(stderr, "%s 0x%08x %dx%d+%d+%d\n",
-			XEV(e), e->window, e->width, e->height, e->x, e->y);
 
 	return 0;
 }
