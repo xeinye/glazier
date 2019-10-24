@@ -223,7 +223,8 @@ cb_mouse_press(xcb_generic_event_t *ev)
 		break;
 	case 2:
 		xcb_kill_client(conn, e->child);
-		break;
+		return 0;
+		break; /* NOTREACHED */
 	case 3:
 		curwid = e->child;
 		p = xcb_cursor_load_cursor(cx, XHAIR_SIZE);
@@ -234,14 +235,16 @@ cb_mouse_press(xcb_generic_event_t *ev)
 		w = wm_get_attribute(e->child, ATTR_W) + move_step;
 		h = wm_get_attribute(e->child, ATTR_H) + move_step;
 		wm_teleport(e->child, x, y, w, h);
-		break;
+		return 0;
+		break; /* NOTREACHED */
 	case 5:
 		x = wm_get_attribute(e->child, ATTR_X) + move_step/2;
 		y = wm_get_attribute(e->child, ATTR_Y) + move_step/2;
 		w = wm_get_attribute(e->child, ATTR_W) - move_step;
 		h = wm_get_attribute(e->child, ATTR_H) - move_step;
 		wm_teleport(e->child, x, y, w, h);
-		break;
+		return 0;
+		break; /* NOTREACHED */
 	default:
 		return 1;
 	}
@@ -307,8 +310,11 @@ cb_motion(xcb_generic_event_t *ev)
 	if (e->time - lasttime < 32)
 		return 0;
 
+	if (curwid == scrn->root)
+		return -1;
+
 	if (verbose)
-		fprintf(stderr, "%s 0x%08x %d,%d\n", XEV(e), e->event, e->root_x, e->root_y);
+		fprintf(stderr, "%s 0x%08x %d,%d\n", XEV(e), curwid, e->root_x, e->root_y);
 
 	lasttime = e->time;
 
