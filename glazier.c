@@ -389,9 +389,7 @@ cb_configure(xcb_generic_event_t *ev)
 
 	if (verbose)
 		fprintf(stderr, "%s 0x%08x %dx%d+%d+%d\n",
-			XEV(e), e->event, e->width, e->height, e->x, e->y);
-
-	wm_teleport(e->window, e->x, e->y, e->width, e->height);
+			XEV(e), e->window, e->width, e->height, e->x, e->y);
 
 	return 0;
 }
@@ -399,6 +397,7 @@ cb_configure(xcb_generic_event_t *ev)
 static int
 cb_configreq(xcb_generic_event_t *ev)
 {
+	int x, y, w, h;
 	xcb_configure_request_event_t *e;
 
 	e = (xcb_configure_request_event_t *)ev;
@@ -409,7 +408,13 @@ cb_configreq(xcb_generic_event_t *ev)
 			e->width, e->height,
 			e->x, e->y);
 
-	wm_teleport(e->window, e->x, e->y, e->width, e->height);
+	x = wm_get_attribute(e->window, ATTR_X);
+	y = wm_get_attribute(e->window, ATTR_Y);
+	w = wm_get_attribute(e->window, ATTR_W);
+	h = wm_get_attribute(e->window, ATTR_H);
+	if (e->x != x || e->y != y || e->width != w || e->height != h)
+		wm_teleport(e->window, e->x, e->y, e->width, e->height);
+
 	wm_restack(e->window, e->stack_mode);
 
 	return 0;
