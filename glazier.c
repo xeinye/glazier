@@ -297,7 +297,7 @@ cb_mouse_release(xcb_generic_event_t *ev)
 static int
 cb_motion(xcb_generic_event_t *ev)
 {
-	int x, y;
+	int x, y, w, h;
 	static xcb_timestamp_t lasttime = 0;
 	xcb_motion_notify_event_t *e;
 
@@ -310,20 +310,26 @@ cb_motion(xcb_generic_event_t *ev)
 	if (verbose)
 		fprintf(stderr, "%s 0x%08x %d,%d\n", XEV(e), e->event, e->root_x, e->root_y);
 
-	x = e->root_x;
-	y = e->root_y;
 	lasttime = e->time;
 
 	switch (e->state & (XCB_BUTTON_MASK_1|XCB_BUTTON_MASK_3)) {
 	case XCB_BUTTON_MASK_1:
-		x -= cursor.x;
-		y -= cursor.y;
-		wm_move(curwid, ABSOLUTE, x, y);
+		x = e->root_x - cursor.x;
+		y = e->root_y - cursor.y;
+		w = wm_get_attribute(curwid, ATTR_W);
+		h = wm_get_attribute(curwid, ATTR_H);
 		break;
 	case XCB_BUTTON_MASK_3:
-		wm_resize(curwid, ABSOLUTE, x, y);
+		x = wm_get_attribute(curwid, ATTR_X);
+		y = wm_get_attribute(curwid, ATTR_Y);
+		w = e->root_x - x;
+		h = e->root_y - y;
 		break;
+	default:
+		return -1;
 	}
+
+	wm_teleport(curwid, x, y, w, h);
 
 	return 0;
 }
