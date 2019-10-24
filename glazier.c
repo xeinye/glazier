@@ -308,6 +308,7 @@ cb_mouse_press(xcb_generic_event_t *ev)
 static int
 cb_mouse_release(xcb_generic_event_t *ev)
 {
+	int x, y, w, h;
 	xcb_cursor_t p;
 	xcb_cursor_context_t *cx;
 	xcb_button_release_event_t *e;
@@ -327,10 +328,24 @@ cb_mouse_release(xcb_generic_event_t *ev)
 
 	xcb_cursor_context_free(cx);
 
+	switch (e->detail) {
+	case 1:
+		w = wm_get_attribute(curwid, ATTR_W);
+		h = wm_get_attribute(curwid, ATTR_H);
+		wm_teleport(curwid, e->root_x - cursor.x, e->root_y - cursor.y, w, h);
+		break;
+	case 3:
+		x = wm_get_attribute(curwid, ATTR_X);
+		y = wm_get_attribute(curwid, ATTR_Y);
+		wm_teleport(curwid, x, y, e->root_x - x, e->root_y - y);
+		break;
+	}
+
 	cursor.x = 0;
 	cursor.y = 0;
 	cursor.b = 0;
 	curwid = scrn->root;
+	outline(scrn->root, 0, 0, 0, 0, 1);
 
 	return 0;
 }
@@ -362,18 +377,19 @@ cb_motion(xcb_generic_event_t *ev)
 		y = e->root_y - cursor.y;
 		w = wm_get_attribute(curwid, ATTR_W);
 		h = wm_get_attribute(curwid, ATTR_H);
+		outline(scrn->root, x, y, w, h, 0);
 		break;
 	case XCB_BUTTON_MASK_3:
 		x = wm_get_attribute(curwid, ATTR_X);
 		y = wm_get_attribute(curwid, ATTR_Y);
 		w = e->root_x - x;
 		h = e->root_y - y;
+		outline(scrn->root, x, y, w, h, 0);
 		break;
 	default:
 		return -1;
 	}
 
-	wm_teleport(curwid, x, y, w, h);
 
 	return 0;
 }
