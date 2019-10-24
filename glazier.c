@@ -21,7 +21,9 @@ struct cursor_t {
 	int b;
 };
 
+void usage(char *);
 static int takeover();
+static int adopt(xcb_window_t);
 static int ev_callback(xcb_generic_event_t *);
 
 /* XCB events callbacks */
