@@ -345,6 +345,8 @@ cb_mouse_release(xcb_generic_event_t *ev)
 	cursor.y = 0;
 	cursor.b = 0;
 	curwid = scrn->root;
+
+	/* clear last drawn rectangle to avoid leaving artefacts */
 	outline(scrn->root, 0, 0, 0, 0, 1);
 
 	return 0;
