@@ -119,22 +119,23 @@ adopt(xcb_window_t wid)
 static int
 takeover()
 {
-	int i, c, n;
+	int i, n;
 	xcb_window_t *orphans;
 
 	n = wm_get_windows(scrn->root, &orphans);
 
-	for (i = 0, c = 0; i < n; i++) {
+	for (i = 0; i < n; i++) {
 		if (wm_is_ignored(orphans[i]))
 			continue;
 
+		if (verbose)
+			fprintf(stderr, "Adoptint 0x%08x\n", orphans[i]);
+
 		adopt(orphans[i]);
-		if (wm_is_mapped(orphans[i])
+		if (wm_is_mapped(orphans[i]))
 			wm_set_border(border, border_color, wid);
 	}
 
-	if (verbose)
-		fprintf(stderr, "Adopted %d windows\n", c);
 
 	return n;
 }
