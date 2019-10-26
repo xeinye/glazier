@@ -242,7 +242,6 @@ cb_mouse_press(xcb_generic_event_t *ev)
 	if (verbose)
 		fprintf(stderr, "%s 0x%08x %d\n", XEV(e), e->event, e->detail);
 
-	wm_restack(e->child, XCB_STACK_MODE_ABOVE);
 
 	cursor.x = e->root_x - wm_get_attribute(e->child, ATTR_X);
 	cursor.y = e->root_y - wm_get_attribute(e->child, ATTR_Y);
@@ -269,6 +268,7 @@ cb_mouse_press(xcb_generic_event_t *ev)
 		w = wm_get_attribute(e->child, ATTR_W) + move_step;
 		h = wm_get_attribute(e->child, ATTR_H) + move_step;
 		wm_teleport(e->child, x, y, w, h);
+		wm_restack(e->child, XCB_STACK_MODE_ABOVE);
 		break;
 	case 5:
 		x = wm_get_attribute(e->child, ATTR_X) + move_step/2;
@@ -276,6 +276,7 @@ cb_mouse_press(xcb_generic_event_t *ev)
 		w = wm_get_attribute(e->child, ATTR_W) - move_step;
 		h = wm_get_attribute(e->child, ATTR_H) - move_step;
 		wm_teleport(e->child, x, y, w, h);
+		wm_restack(e->child, XCB_STACK_MODE_ABOVE);
 		break;
 	default:
 		return 1;
@@ -330,7 +331,8 @@ cb_mouse_release(xcb_generic_event_t *ev)
 	cursor.x = 0;
 	cursor.y = 0;
 	cursor.b = 0;
-	curwid = scrn->root;
+
+	wm_restack(curwid, XCB_STACK_MODE_ABOVE);
 
 	/* clear last drawn rectangle to avoid leaving artefacts */
 	outline(scrn->root, 0, 0, 0, 0, 1);
@@ -413,7 +415,6 @@ cb_enter(xcb_generic_event_t *ev)
 		fprintf(stderr, "%s 0x%08x\n", XEV(e), e->event);
 
 	wm_set_focus(e->event);
-	curwid = e->event;
 
 	return 0;
 }
