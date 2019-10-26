@@ -107,9 +107,8 @@ adopt(xcb_window_t wid)
 		h = wm_get_attribute(wid, ATTR_H);
 		wm_get_cursor(0, scrn->root, &x, &y);
 		wm_teleport(wid, x - w/2, y - h/2, w, h);
-	} else {
-		wm_set_border(border, border_color, wid);
 	}
+
 	wm_reg_event(wid, XCB_EVENT_MASK_ENTER_WINDOW
 		| XCB_EVENT_MASK_FOCUS_CHANGE
 		| XCB_EVENT_MASK_STRUCTURE_NOTIFY);
@@ -130,7 +129,8 @@ takeover()
 			continue;
 
 		adopt(orphans[i]);
-		c++;
+		if (wm_is_mapped(orphans[i])
+			wm_set_border(border, border_color, wid);
 	}
 
 	if (verbose)
