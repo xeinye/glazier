@@ -428,10 +428,10 @@ cb_focus(xcb_generic_event_t *ev)
 
 	switch(e->response_type & ~0x80) {
 	case XCB_FOCUS_IN:
-		wm_set_border(border, border_color_active, e->event);
+		wm_set_border(-1, border_color_active, e->event);
 		break;
 	case XCB_FOCUS_OUT:
-		wm_set_border(border, border_color, e->event);
+		wm_set_border(-1, border_color, e->event);
 		break;
 	}
 
