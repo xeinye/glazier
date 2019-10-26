@@ -441,7 +441,7 @@ cb_focus(xcb_generic_event_t *ev)
 static int
 cb_configreq(xcb_generic_event_t *ev)
 {
-	int x, y, w, h;
+	int x, y, w, h, b;
 	xcb_configure_request_event_t *e;
 
 	e = (xcb_configure_request_event_t *)ev;
@@ -456,6 +456,10 @@ cb_configreq(xcb_generic_event_t *ev)
 	y = wm_get_attribute(e->window, ATTR_Y);
 	w = wm_get_attribute(e->window, ATTR_W);
 	h = wm_get_attribute(e->window, ATTR_H);
+	b = wm_get_attribute(e->window, ATTR_B);
+	if (e->border_width != b)
+		wm_set_border(e->border_width, -1, e->window);
+
 	if (e->x != x || e->y != y || e->width != w || e->height != h)
 		wm_teleport(e->window, e->x, e->y, e->width, e->height);
 
