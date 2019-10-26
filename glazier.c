@@ -5,7 +5,6 @@
 
 #include "arg.h"
 #include "wm.h"
-#include "config.h"
 
 #define LEN(x) (sizeof(x)/sizeof(x[0]))
 #define XEV(x) (evname[(x)->response_type & ~0x80])
@@ -22,6 +21,15 @@ struct cursor_t {
 	int y;
 	int b;
 };
+
+enum {
+	XHAIR_DFLT,
+	XHAIR_MOVE,
+	XHAIR_SIZE,
+	XHAIR_TELE,
+};
+
+#include "config.h"
 
 void usage(char *);
 static int takeover();
@@ -223,6 +231,7 @@ cb_mapreq(xcb_generic_event_t *ev)
 	wm_remap(e->window, MAP);
 	wm_set_border(border, border_color, e->window);
 	wm_set_focus(e->window);
+
 	return 0;
 }
 
@@ -242,7 +251,6 @@ cb_mouse_press(xcb_generic_event_t *ev)
 	if (verbose)
 		fprintf(stderr, "%s 0x%08x %d\n", XEV(e), e->event, e->detail);
 
-
 	cursor.x = e->root_x - wm_get_attribute(e->child, ATTR_X);
 	cursor.y = e->root_y - wm_get_attribute(e->child, ATTR_Y);
 	cursor.b = e->detail;
@@ -253,14 +261,14 @@ cb_mouse_press(xcb_generic_event_t *ev)
 	switch(e->detail) {
 	case 1:
 		curwid = e->child;
-		wm_reg_cursor_event(scrn->root, mask, XHAIR_MOVE);
+		wm_reg_cursor_event(scrn->root, mask, xhair[XHAIR_MOVE]);
 		break;
 	case 2:
-		wm_reg_cursor_event(scrn->root, mask, XHAIR_SIZE);
+		wm_reg_cursor_event(scrn->root, mask, xhair[XHAIR_TELE]);
 		break;
 	case 3:
 		curwid = e->child;
-		wm_reg_cursor_event(scrn->root, mask, XHAIR_SIZE);
+		wm_reg_cursor_event(scrn->root, mask, xhair[XHAIR_SIZE]);
 		break;
 	case 4:
 		x = wm_get_attribute(e->child, ATTR_X) - move_step/2;
@@ -302,7 +310,7 @@ cb_mouse_release(xcb_generic_event_t *ev)
 		exit(1);
 	}
 
-	p = xcb_cursor_load_cursor(cx, XHAIR_DFLT);
+	p = xcb_cursor_load_cursor(cx, xhair[XHAIR_DFLT]);
 	xcb_change_window_attributes(conn, e->event, XCB_CW_CURSOR, &p);
 	xcb_ungrab_pointer(conn, XCB_CURRENT_TIME);
 
