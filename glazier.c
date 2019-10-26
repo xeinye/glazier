@@ -281,6 +281,8 @@ cb_mouse_press(xcb_generic_event_t *ev)
 		wm_reg_cursor_event(scrn->root, mask, xhair[XHAIR_MOVE]);
 		break;
 	case 2:
+		cursor.x = e->root_x;
+		cursor.y = e->root_y;
 		wm_reg_cursor_event(scrn->root, mask, xhair[XHAIR_TELE]);
 		break;
 	case 3:
