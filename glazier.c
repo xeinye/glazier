@@ -9,6 +9,8 @@
 
 #define LEN(x) (sizeof(x)/sizeof(x[0]))
 #define XEV(x) (evname[(x)->response_type & ~0x80])
+#define MIN(x,y) ((x)>(y)?(y):(x))
+#define MAX(x,y) ((x)>(y)?(x):(y))
 
 struct ev_callback_t {
 	uint32_t type;
@@ -255,7 +257,7 @@ cb_mouse_press(xcb_generic_event_t *ev)
 		wm_reg_cursor_event(scrn->root, mask, XHAIR_MOVE);
 		break;
 	case 2:
-		xcb_kill_client(conn, e->child);
+		wm_reg_cursor_event(scrn->root, mask, XHAIR_SIZE);
 		break;
 	case 3:
 		curwid = e->child;
@@ -311,6 +313,13 @@ cb_mouse_release(xcb_generic_event_t *ev)
 		h = wm_get_attribute(curwid, ATTR_H);
 		wm_teleport(curwid, e->root_x - cursor.x, e->root_y - cursor.y, w, h);
 		break;
+	case 2:
+		x = MIN(e->root_x,cursor.x);
+		y = MIN(e->root_y,cursor.y);
+		w = MAX(e->root_x,cursor.x) - x;
+		h = MAX(e->root_y,cursor.y) - y;
+		wm_teleport(curwid, x, y, w, h);
+		break;
 	case 3:
 		x = wm_get_attribute(curwid, ATTR_X);
 		y = wm_get_attribute(curwid, ATTR_Y);
@@ -350,12 +359,29 @@ cb_motion(xcb_generic_event_t *ev)
 
 	lasttime = e->time;
 
-	switch (e->state & (XCB_BUTTON_MASK_1|XCB_BUTTON_MASK_3)) {
+	switch (e->state & (XCB_BUTTON_MASK_1|XCB_BUTTON_MASK_2|XCB_BUTTON_MASK_3)) {
 	case XCB_BUTTON_MASK_1:
 		x = e->root_x - cursor.x;
 		y = e->root_y - cursor.y;
 		w = wm_get_attribute(curwid, ATTR_W);
 		h = wm_get_attribute(curwid, ATTR_H);
+		outline(scrn->root, x, y, w, h, 0);
+		break;
+	case XCB_BUTTON_MASK_2:
+		if (cursor.x > e->root_x) {
+			x = e->root_x;
+			w = cursor.x - x;
+		} else {
+			x = cursor.x;
+			w = e->root_x - x;
+		}
+		if (cursor.y > e->root_y) {
+			y = e->root_y;
+			h = cursor.y - y;
+		} else {
+			y = cursor.y;
+			h = e->root_y - y;
+		}
 		outline(scrn->root, x, y, w, h, 0);
 		break;
 	case XCB_BUTTON_MASK_3:
@@ -387,6 +413,7 @@ cb_enter(xcb_generic_event_t *ev)
 		fprintf(stderr, "%s 0x%08x\n", XEV(e), e->event);
 
 	wm_set_focus(e->event);
+	curwid = e->event;
 
 	return 0;
 }
