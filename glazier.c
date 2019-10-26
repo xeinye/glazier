@@ -34,6 +34,7 @@ enum {
 void usage(char *);
 static int takeover();
 static int adopt(xcb_window_t);
+static int inflate(xcb_window_t, int);
 static int outline(xcb_drawable_t, int, int, int, int, int);
 static int ev_callback(xcb_generic_event_t *);
 
@@ -122,6 +123,22 @@ adopt(xcb_window_t wid)
 	wm_reg_window_event(wid, XCB_EVENT_MASK_ENTER_WINDOW
 		| XCB_EVENT_MASK_FOCUS_CHANGE
 		| XCB_EVENT_MASK_STRUCTURE_NOTIFY);
+
+	return 0;
+}
+
+static int
+inflate(xcb_window_t wid, int step)
+{
+	int x, y, w, h;
+
+	x = wm_get_attribute(wid, ATTR_X) - step/2;
+	y = wm_get_attribute(wid, ATTR_Y) - step/2;
+	w = wm_get_attribute(wid, ATTR_W) + step;
+	h = wm_get_attribute(wid, ATTR_H) + step;
+
+	wm_teleport(wid, x, y, w, h);
+	wm_restack(wid, XCB_STACK_MODE_ABOVE);
 
 	return 0;
 }
@@ -238,7 +255,7 @@ cb_mapreq(xcb_generic_event_t *ev)
 static int
 cb_mouse_press(xcb_generic_event_t *ev)
 {
-	int x, y, w, h, mask;
+	int mask;
 	static xcb_timestamp_t lasttime = 0;
 	xcb_button_press_event_t *e;
 
@@ -271,20 +288,14 @@ cb_mouse_press(xcb_generic_event_t *ev)
 		wm_reg_cursor_event(scrn->root, mask, xhair[XHAIR_SIZE]);
 		break;
 	case 4:
-		x = wm_get_attribute(e->child, ATTR_X) - move_step/2;
-		y = wm_get_attribute(e->child, ATTR_Y) - move_step/2;
-		w = wm_get_attribute(e->child, ATTR_W) + move_step;
-		h = wm_get_attribute(e->child, ATTR_H) + move_step;
-		wm_teleport(e->child, x, y, w, h);
+		inflate(e->child, move_step);
 		wm_restack(e->child, XCB_STACK_MODE_ABOVE);
+		cursor.b = 0;
 		break;
 	case 5:
-		x = wm_get_attribute(e->child, ATTR_X) + move_step/2;
-		y = wm_get_attribute(e->child, ATTR_Y) + move_step/2;
-		w = wm_get_attribute(e->child, ATTR_W) - move_step;
-		h = wm_get_attribute(e->child, ATTR_H) - move_step;
-		wm_teleport(e->child, x, y, w, h);
+		inflate(e->child, - move_step);
 		wm_restack(e->child, XCB_STACK_MODE_ABOVE);
+		cursor.b = 0;
 		break;
 	default:
 		return 1;
