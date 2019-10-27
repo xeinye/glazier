@@ -35,7 +35,7 @@ void usage(char *);
 static int takeover();
 static int adopt(xcb_window_t);
 static int inflate(xcb_window_t, int);
-static int outline(xcb_drawable_t, int, int, int, int, int);
+static int outline(xcb_drawable_t, int, int, int, int);
 static int ev_callback(xcb_generic_event_t *);
 
 /* XCB events callbacks */
@@ -108,7 +108,14 @@ usage(char *name)
 	fprintf(stderr, "usage: %s [-vh]\n", name);
 }
 
-static int
+/*
+ * Every window that shouldn't be ignored (override_redirect) is adoped
+ * by the WM when it is created, or when the WM is started.
+ * When a window is created, it is centered on the cursor, before it
+ * gets mapped on screen. Windows that are already visible are not moved.
+ * Some events are also registered by the WM for these windows.
+ */
+int
 adopt(xcb_window_t wid)
 {
 	int x, y, w, h;
@@ -123,14 +130,17 @@ adopt(xcb_window_t wid)
 		wm_teleport(wid, MAX(0, x - w/2), MAX(0, y - h/2), w, h);
 	}
 
-	wm_reg_window_event(wid, XCB_EVENT_MASK_ENTER_WINDOW
+	return wm_reg_window_event(wid, XCB_EVENT_MASK_ENTER_WINDOW
 		| XCB_EVENT_MASK_FOCUS_CHANGE
 		| XCB_EVENT_MASK_STRUCTURE_NOTIFY);
-
-	return 0;
 }
 
-static int
+/*
+ * Inflating a window will grow it both vertically and horizontally in
+ * all 4 directions, thus making it look like it is inflating.
+ * The window can be "deflated" by providing a negative `step` value.
+ */
+int
 inflate(xcb_window_t wid, int step)
 {
 	int x, y, w, h;
@@ -140,13 +150,16 @@ inflate(xcb_window_t wid, int step)
 	w = wm_get_attribute(wid, ATTR_W) + step;
 	h = wm_get_attribute(wid, ATTR_H) + step;
 
-	wm_teleport(wid, x, y, w, h);
-	wm_restack(wid, XCB_STACK_MODE_ABOVE);
-
-	return 0;
+	return wm_teleport(wid, x, y, w, h);
 }
 
-static int
+/*
+ * When the WM is started, it will take control of the existing windows.
+ * This means registering events on them and setting the borders if they
+ * are mapped. This function is only supposed to run once at startup,
+ * as the callback functions will take control of new windows
+ */
+int
 takeover()
 {
 	int i, n;
@@ -167,12 +180,21 @@ takeover()
 			wm_set_border(border, border_color, wid);
 	}
 
-
 	return n;
 }
 
-static int
-outline(xcb_drawable_t wid, int x, int y, int w, int h, int clear)
+/*
+ * Draws a rectangle selection on the screen.
+ * The trick here is to invert the color on the selection, so that
+ * redrawing the same rectangle will "clear" it.
+ * This function is used to dynamically draw a region for moving/resizing
+ * a window using the cursor. As such, we need to make sure that whenever
+ * we draw a rectangle, we clear out the last drawn one by redrawing
+ * the latest coordinates again, so we have to save them from one call to
+ * the other.
+ */
+int
+outline(xcb_drawable_t wid, int x, int y, int w, int h)
 {
 	int mask, val[3];
 	static int X = 0, Y = 0, W = 0, H = 0;
@@ -193,11 +215,6 @@ outline(xcb_drawable_t wid, int x, int y, int w, int h, int clear)
 	r.height = H;
 	xcb_poly_rectangle(conn, wid, gc, 1, &r);
 
-	if (clear) {
-		X = Y = W = H = 0;
-		return 0;
-	}
-
 	/* draw rectangle and save its coordinates for later removal */
 	X = r.x = x;
 	Y = r.y = y;
@@ -208,7 +225,11 @@ outline(xcb_drawable_t wid, int x, int y, int w, int h, int clear)
 	return 0;
 }
 
-static int
+/*
+ * Callback used for all events that are not explicitely registered.
+ * This is not at all necessary, and used for debugging purposes.
+ */
+int
 cb_default(xcb_generic_event_t *ev)
 {
 	if (verbose && XEV(ev)) {
@@ -220,7 +241,13 @@ cb_default(xcb_generic_event_t *ev)
 	return 0;
 }
 
-static int
+/*
+ * XCB_CREATE_NOTIFY is the first event triggered by new windows, and
+ * is used to prepare the window for use by the WM.
+ * The attribute `override_redirect` allow windows to specify that they
+ * shouldn't be handled by the WM.
+ */
+int
 cb_create(xcb_generic_event_t *ev)
 {
 	xcb_create_notify_event_t *e;
@@ -238,7 +265,14 @@ cb_create(xcb_generic_event_t *ev)
 	return 0;
 }
 
-static int
+/*
+ * XCB_MAP_REQUEST is triggered by a window that wants to be mapped on
+ * screen. This is then the responsibility of the WM to map it on screen
+ * and eventually decorate it. This event require that the WM register
+ * XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT on the root window to intercept
+ * map requests.
+ */
+int
 cb_mapreq(xcb_generic_event_t *ev)
 {
 	xcb_map_request_event_t *e;
@@ -255,7 +289,19 @@ cb_mapreq(xcb_generic_event_t *ev)
 	return 0;
 }
 
-static int
+/*
+ * The WM grabs XCB_BUTTON_PRESS events when the modifier is held.
+ * Once pressed, we'll grab the pointer entirely (without modifiers)
+ * and wait for motion/release events.
+ * The special mouse buttons 4/5 (scroll up/down) are treated especially,
+ * as they do not trigger any "release" event.
+ *
+ * This function must also save the window ID where the mouse press
+ * occured so we know which window to move/resize, even if the focus
+ * changes to another window.
+ * For similar reasons, we must save the cursor position.
+ */
+int
 cb_mouse_press(xcb_generic_event_t *ev)
 {
 	int mask;
@@ -266,7 +312,7 @@ cb_mouse_press(xcb_generic_event_t *ev)
 
 	/* ignore some motion events if they happen too often */
 	if (e->time - lasttime < 8)
-		return 0;
+		return -1;
 
 	if (verbose)
 		fprintf(stderr, "%s 0x%08x %d\n", XEV(e), e->event, e->detail);
@@ -303,13 +349,18 @@ cb_mouse_press(xcb_generic_event_t *ev)
 		cursor.b = 0;
 		break;
 	default:
-		return 1;
+		return -1;
 	}
 
 	return 0;
 }
 
-static int
+/*
+ * When XCB_BUTTON_RELEASE is triggered, this will "commit" any
+ * move/resize initiated on a previous mouse press.
+ * This will also ungrab the mouse pointer.
+ */
+int
 cb_mouse_release(xcb_generic_event_t *ev)
 {
 	int x, y, w, h;
@@ -359,12 +410,28 @@ cb_mouse_release(xcb_generic_event_t *ev)
 	wm_restack(curwid, XCB_STACK_MODE_ABOVE);
 
 	/* clear last drawn rectangle to avoid leaving artefacts */
-	outline(scrn->root, 0, 0, 0, 0, 1);
+	outline(scrn->root, 0, 0, 0, 0);
 
 	return 0;
 }
 
-static int
+/*
+ * When the pointer is grabbed, every move triggers a XCB_MOTION_NOTIFY.
+ * Events are reported for every single move by 1 pixel.
+ *
+ * This can spam a huge lot of events, and treating them all can be
+ * resource hungry and make the interface feels laggy.
+ * To get around this, we must ignore some of these events. This is done
+ * by using the `time` attribute, and only processing new events every
+ * X milliseconds.
+ *
+ * This callback is different from the others because it does not uses
+ * the ID of the window that reported the event, but an ID previously
+ * saved in cb_mouse_press().
+ * This makes sense as we want to move the last window we clicked on,
+ * and not the window we are moving over.
+ */
+int
 cb_motion(xcb_generic_event_t *ev)
 {
 	int x, y, w, h;
@@ -381,7 +448,8 @@ cb_motion(xcb_generic_event_t *ev)
 		return -1;
 
 	if (verbose)
-		fprintf(stderr, "%s 0x%08x %d,%d\n", XEV(e), curwid, e->root_x, e->root_y);
+		fprintf(stderr, "%s 0x%08x %d,%d\n", XEV(e), curwid,
+			e->root_x, e->root_y);
 
 	lasttime = e->time;
 
@@ -391,7 +459,7 @@ cb_motion(xcb_generic_event_t *ev)
 		y = e->root_y - cursor.y;
 		w = wm_get_attribute(curwid, ATTR_W);
 		h = wm_get_attribute(curwid, ATTR_H);
-		outline(scrn->root, x, y, w, h, 0);
+		outline(scrn->root, x, y, w, h);
 		break;
 	case XCB_BUTTON_MASK_2:
 		if (cursor.x > e->root_x) {
@@ -408,24 +476,28 @@ cb_motion(xcb_generic_event_t *ev)
 			y = cursor.y;
 			h = e->root_y - y;
 		}
-		outline(scrn->root, x, y, w, h, 0);
+		outline(scrn->root, x, y, w, h);
 		break;
 	case XCB_BUTTON_MASK_3:
 		x = wm_get_attribute(curwid, ATTR_X);
 		y = wm_get_attribute(curwid, ATTR_Y);
 		w = e->root_x - x;
 		h = e->root_y - y;
-		outline(scrn->root, x, y, w, h, 0);
+		outline(scrn->root, x, y, w, h);
 		break;
 	default:
 		return -1;
 	}
 
-
 	return 0;
 }
 
-static int
+/*
+ * Each time the pointer moves from one window to another, an
+ * XCB_ENTER_NOTIFY event is fired. This is used to switch input focus
+ * between windows to follow where the pointer is.
+ */
+int
 cb_enter(xcb_generic_event_t *ev)
 {
 	xcb_enter_notify_event_t *e;
@@ -438,12 +510,15 @@ cb_enter(xcb_generic_event_t *ev)
 	if (verbose)
 		fprintf(stderr, "%s 0x%08x\n", XEV(e), e->event);
 
-	wm_set_focus(e->event);
-
-	return 0;
+	return wm_set_focus(e->event);
 }
 
-static int
+/*
+ * Whenever the input focus change from one window to another, both an
+ * XCB_FOCUS_OUT and XCB_FOCUS_IN are fired.
+ * This is the occasion to change the border color to represent focus.
+ */
+int
 cb_focus(xcb_generic_event_t *ev)
 {
 	xcb_focus_in_event_t *e;
@@ -455,17 +530,23 @@ cb_focus(xcb_generic_event_t *ev)
 
 	switch(e->response_type & ~0x80) {
 	case XCB_FOCUS_IN:
-		wm_set_border(-1, border_color_active, e->event);
-		break;
+		return wm_set_border(-1, border_color_active, e->event);
+		break; /* NOTREACHED */
 	case XCB_FOCUS_OUT:
-		wm_set_border(-1, border_color, e->event);
-		break;
+		return wm_set_border(-1, border_color, e->event);
+		break; /* NOTREACHED */
 	}
 
-	return 0;
+	return -1;
 }
 
-static int
+/*
+ * XCB_CONFIGURE_REQUEST is triggered by every window that wants to
+ * change its attributes like size, stacking order or border.
+ * These must now be handled by the WM because of the
+ * XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT registration.
+ */
+int
 cb_configreq(xcb_generic_event_t *ev)
 {
 	int x, y, w, h, b;
@@ -495,7 +576,11 @@ cb_configreq(xcb_generic_event_t *ev)
 	return 0;
 }
 
-static int
+/*
+ * This functions uses the ev_callback_t structure to call out a specific
+ * callback function for each EVENT fired.
+ */
+int
 ev_callback(xcb_generic_event_t *ev)
 {
 	uint8_t i;
@@ -563,7 +648,5 @@ main (int argc, char *argv[])
 		free(ev);
 	}
 
-	wm_kill_xcb();
-
-	return 0;
+	return wm_kill_xcb();
 }
