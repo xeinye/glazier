@@ -180,6 +180,10 @@ takeover()
 			wm_set_border(border, border_color, wid);
 	}
 
+	wid = wm_get_focus();
+	if (wid != scrn->root)
+		wm_set_border(border, border_color_active, wid);
+
 	return n;
 }
 
