@@ -118,7 +118,7 @@ usage(char *name)
 int
 adopt(xcb_window_t wid)
 {
-	int x, y, w, h;
+	int x, y, w, h, sw, sh;
 
 	if (wm_is_ignored(wid))
 		return -1;
@@ -127,6 +127,13 @@ adopt(xcb_window_t wid)
 		w = wm_get_attribute(wid, ATTR_W);
 		h = wm_get_attribute(wid, ATTR_H);
 		wm_get_cursor(0, scrn->root, &x, &y);
+
+		/* prevent windows to pop outside of the screen */
+		sw = wm_get_attribute(scrn->root, ATTR_W);
+		sh = wm_get_attribute(scrn->root, ATTR_H);
+		if ((x + w) > sw) x = sw - w/2;
+		if ((y + h) > sh) y = sh - h/2;
+
 		wm_teleport(wid, MAX(0, x - w/2), MAX(0, y - h/2), w, h);
 	}
 
