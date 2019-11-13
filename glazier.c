@@ -123,7 +123,9 @@ adopt(xcb_window_t wid)
 	if (wm_is_ignored(wid))
 		return -1;
 
-	if (!wm_is_mapped(wid)) {
+	x = wm_get_attribute(wid, ATTR_X);
+	y = wm_get_attribute(wid, ATTR_Y);
+	if (!wm_is_mapped(wid) && !x && !y) {
 		w = wm_get_attribute(wid, ATTR_W);
 		h = wm_get_attribute(wid, ATTR_H);
 		wm_get_cursor(0, scrn->root, &x, &y);
