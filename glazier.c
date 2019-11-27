@@ -125,10 +125,16 @@ adopt(xcb_window_t wid)
 
 	x = wm_get_attribute(wid, ATTR_X);
 	y = wm_get_attribute(wid, ATTR_Y);
-	if (!wm_is_mapped(wid) && !x && !y) {
+
+	if (!wm_is_mapped(wid)) {
 		w = wm_get_attribute(wid, ATTR_W);
 		h = wm_get_attribute(wid, ATTR_H);
-		wm_get_cursor(0, scrn->root, &x, &y);
+
+		if (!x && !y) {
+			wm_get_cursor(0, scrn->root, &x, &y);
+			x = MAX(0, x - w/2);
+			y = MAX(0, y - h/2);
+		}
 
 		/* prevent windows to pop outside of the screen */
 		sw = wm_get_attribute(scrn->root, ATTR_W);
@@ -136,7 +142,7 @@ adopt(xcb_window_t wid)
 		if ((x + w) > sw) x = sw - w/2;
 		if ((y + h) > sh) y = sh - h/2;
 
-		wm_teleport(wid, MAX(0, x - w/2), MAX(0, y - h/2), w, h);
+		wm_teleport(wid, MAX(0, x), MAX(0, y), w, h);
 	}
 
 	return wm_reg_window_event(wid, XCB_EVENT_MASK_ENTER_WINDOW
