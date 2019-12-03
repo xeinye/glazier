@@ -535,6 +535,9 @@ cb_enter(xcb_generic_event_t *ev)
 
 	e = (xcb_enter_notify_event_t *)ev;
 
+	if (wm_is_ignored(e->event))
+		return 0;
+
 	if (cursor.mode != GRAB_NONE)
 		return 0;
 
