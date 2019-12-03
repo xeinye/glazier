@@ -17,9 +17,8 @@ struct ev_callback_t {
 };
 
 struct cursor_t {
-	int x;
-	int y;
-	int b;
+	int x, y;
+	int mode;
 };
 
 enum {
@@ -27,6 +26,13 @@ enum {
 	XHAIR_MOVE,
 	XHAIR_SIZE,
 	XHAIR_TELE,
+};
+
+enum {
+	GRAB_NONE = 0,
+	GRAB_MOVE,
+	GRAB_SIZE,
+	GRAB_TELE,
 };
 
 #include "config.h"
@@ -338,7 +344,6 @@ cb_mouse_press(xcb_generic_event_t *ev)
 
 	cursor.x = e->root_x - wm_get_attribute(e->child, ATTR_X);
 	cursor.y = e->root_y - wm_get_attribute(e->child, ATTR_Y);
-	cursor.b = e->detail;
 	lasttime = e->time;
 
 	mask = XCB_EVENT_MASK_BUTTON_RELEASE | XCB_EVENT_MASK_BUTTON_MOTION;
@@ -347,25 +352,29 @@ cb_mouse_press(xcb_generic_event_t *ev)
 	case 1:
 		curwid = e->child;
 		wm_reg_cursor_event(scrn->root, mask, xhair[XHAIR_MOVE]);
+		cursor.mode = GRAB_MOVE;
 		break;
 	case 2:
+		curwid = e->child;
+		wm_reg_cursor_event(scrn->root, mask, xhair[XHAIR_TELE]);
+		cursor.mode = GRAB_TELE;
 		cursor.x = e->root_x;
 		cursor.y = e->root_y;
-		wm_reg_cursor_event(scrn->root, mask, xhair[XHAIR_TELE]);
 		break;
 	case 3:
 		curwid = e->child;
 		wm_reg_cursor_event(scrn->root, mask, xhair[XHAIR_SIZE]);
+		cursor.mode = GRAB_SIZE;
 		break;
 	case 4:
 		inflate(e->child, move_step);
 		wm_restack(e->child, XCB_STACK_MODE_ABOVE);
-		cursor.b = 0;
+		cursor.mode = GRAB_NONE;
 		break;
 	case 5:
 		inflate(e->child, - move_step);
 		wm_restack(e->child, XCB_STACK_MODE_ABOVE);
-		cursor.b = 0;
+		cursor.mode = GRAB_NONE;
 		break;
 	default:
 		return -1;
@@ -424,7 +433,7 @@ cb_mouse_release(xcb_generic_event_t *ev)
 
 	cursor.x = 0;
 	cursor.y = 0;
-	cursor.b = 0;
+	cursor.mode = GRAB_NONE;
 
 	wm_restack(curwid, XCB_STACK_MODE_ABOVE);
 
@@ -523,7 +532,7 @@ cb_enter(xcb_generic_event_t *ev)
 
 	e = (xcb_enter_notify_event_t *)ev;
 
-	if (cursor.b)
+	if (cursor.mode != GRAB_NONE)
 		return 0;
 
 	if (verbose)
