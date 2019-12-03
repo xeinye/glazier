@@ -564,6 +564,7 @@ cb_focus(xcb_generic_event_t *ev)
 
 	switch(e->response_type & ~0x80) {
 	case XCB_FOCUS_IN:
+		curwid = e->event;
 		return wm_set_border(-1, border_color_active, e->event);
 		break; /* NOTREACHED */
 	case XCB_FOCUS_OUT:
