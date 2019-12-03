@@ -335,6 +335,7 @@ cb_mouse_press(xcb_generic_event_t *ev)
 	int mask;
 	static xcb_timestamp_t lasttime = 0;
 	xcb_button_press_event_t *e;
+	xcb_window_t wid;
 
 	e = (xcb_button_press_event_t *)ev;
 
@@ -342,11 +343,13 @@ cb_mouse_press(xcb_generic_event_t *ev)
 	if (e->time - lasttime < 8)
 		return -1;
 
-	if (verbose)
-		fprintf(stderr, "%s 0x%08x %d\n", XEV(e), e->event, e->detail);
+	wid = e->child ? e->child : e->event;
 
-	cursor.x = e->root_x - wm_get_attribute(e->child, ATTR_X);
-	cursor.y = e->root_y - wm_get_attribute(e->child, ATTR_Y);
+	if (verbose)
+		fprintf(stderr, "%s 0x%08x %d\n", XEV(e), wid, e->detail);
+
+	cursor.x = e->root_x - wm_get_attribute(wid, ATTR_X);
+	cursor.y = e->root_y - wm_get_attribute(wid, ATTR_Y);
 	cursor.b = e->detail;
 	lasttime = e->time;
 
@@ -354,29 +357,29 @@ cb_mouse_press(xcb_generic_event_t *ev)
 
 	switch(e->detail) {
 	case 1:
-		curwid = e->child;
+		curwid = wid;
 		cursor.mode = GRAB_MOVE;
 		wm_reg_cursor_event(scrn->root, mask, xhair[XHAIR_MOVE]);
 		break;
 	case 2:
-		curwid = e->child;
+		curwid = wid;
 		cursor.x = e->root_x;
 		cursor.y = e->root_y;
 		cursor.mode = GRAB_TELE;
 		wm_reg_cursor_event(scrn->root, mask, xhair[XHAIR_TELE]);
 		break;
 	case 3:
-		curwid = e->child;
+		curwid = wid;
 		cursor.mode = GRAB_SIZE;
 		wm_reg_cursor_event(scrn->root, mask, xhair[XHAIR_SIZE]);
 		break;
 	case 4:
-		inflate(e->child, move_step);
+		inflate(wid, move_step);
 		wm_restack(e->child, XCB_STACK_MODE_ABOVE);
 		break;
 	case 5:
-		inflate(e->child, - move_step);
-		wm_restack(e->child, XCB_STACK_MODE_ABOVE);
+		inflate(wid, - move_step);
+		wm_restack(wid, XCB_STACK_MODE_ABOVE);
 		break;
 	default:
 		return -1;
