@@ -257,9 +257,12 @@ outline(xcb_drawable_t wid, int x, int y, int w, int h)
 int
 cb_default(xcb_generic_event_t *ev)
 {
-	if (verbose && XEV(ev)) {
+	if (verbose < 2)
+		return 0;
+
+	if (XEV(ev)) {
 		fprintf(stderr, "%s not handled\n", XEV(ev));
-	} else if (verbose) {
+	} else {
 		fprintf(stderr, "EVENT %d not handled\n", ev->response_type);
 	}
 
