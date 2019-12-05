@@ -240,7 +240,7 @@ outline(xcb_drawable_t wid, int x, int y, int w, int h)
 	W = r.width = w;
 	H = r.height = h;
 	xcb_poly_rectangle(conn, wid, gc, 1, &r);
-	
+
 	return 0;
 }
 
@@ -591,7 +591,7 @@ cb_focus(xcb_generic_event_t *ev)
 int
 cb_configreq(xcb_generic_event_t *ev)
 {
-	int x, y, w, h, b;
+	int x, y, w, h;
 	xcb_configure_request_event_t *e;
 
 	e = (xcb_configure_request_event_t *)ev;
@@ -606,14 +606,19 @@ cb_configreq(xcb_generic_event_t *ev)
 	y = wm_get_attribute(e->window, ATTR_Y);
 	w = wm_get_attribute(e->window, ATTR_W);
 	h = wm_get_attribute(e->window, ATTR_H);
-	b = wm_get_attribute(e->window, ATTR_B);
-	if (e->border_width != b)
+
+	if (e->value_mask & XCB_CONFIG_WINDOW_X) x = e->x;
+	if (e->value_mask & XCB_CONFIG_WINDOW_Y) y = e->y;
+	if (e->value_mask & XCB_CONFIG_WINDOW_WIDTH)  w = e->width;
+	if (e->value_mask & XCB_CONFIG_WINDOW_HEIGHT) h = e->height;
+
+	wm_teleport(e->window, x, y, w, h);
+
+	if (e->value_mask & XCB_CONFIG_WINDOW_BORDER_WIDTH)
 		wm_set_border(e->border_width, -1, e->window);
 
-	if (e->x != x || e->y != y || e->width != w || e->height != h)
-		wm_teleport(e->window, e->x, e->y, e->width, e->height);
-
-	wm_restack(e->window, e->stack_mode);
+	if (e->value_mask & XCB_CONFIG_WINDOW_STACK_MODE)
+		wm_restack(e->window, e->stack_mode);
 
 	return 0;
 }
