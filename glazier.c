@@ -124,7 +124,7 @@ usage(char *name)
 int
 adopt(xcb_window_t wid)
 {
-	int x, y, w, h, sw, sh;
+	int x, y, w, h;
 
 	if (wm_is_ignored(wid))
 		return -1;
@@ -141,14 +141,6 @@ adopt(xcb_window_t wid)
 			x = MAX(0, x - w/2);
 			y = MAX(0, y - h/2);
 		}
-
-		/* prevent windows to pop outside of the screen */
-		sw = wm_get_attribute(scrn->root, ATTR_W);
-		sh = wm_get_attribute(scrn->root, ATTR_H);
-		if ((x + w) > sw) x = sw - w/2;
-		if ((y + h) > sh) y = sh - h/2;
-
-		wm_teleport(wid, MAX(0, x), MAX(0, y), w, h);
 	}
 
 	return wm_reg_window_event(wid, XCB_EVENT_MASK_ENTER_WINDOW
@@ -303,6 +295,7 @@ cb_create(xcb_generic_event_t *ev)
 int
 cb_mapreq(xcb_generic_event_t *ev)
 {
+	int x, y;
 	xcb_map_request_event_t *e;
 
 	e = (xcb_map_request_event_t *)ev;
@@ -313,6 +306,11 @@ cb_mapreq(xcb_generic_event_t *ev)
 	wm_remap(e->window, MAP);
 	wm_set_border(border, border_color, e->window);
 	wm_set_focus(e->window);
+
+	/* prevent window to pop outside the screen */
+	x = wm_get_attribute(e->window, ATTR_X);
+	y = wm_get_attribute(e->window, ATTR_Y);
+	wm_move(e->window, ABSOLUTE, x, y);
 
 	return 0;
 }
