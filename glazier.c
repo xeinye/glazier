@@ -141,6 +141,8 @@ adopt(xcb_window_t wid)
 			x = MAX(0, x - w/2);
 			y = MAX(0, y - h/2);
 		}
+
+		wm_teleport(wid, MAX(0, x), MAX(0, y), w, h);
 	}
 
 	return wm_reg_window_event(wid, XCB_EVENT_MASK_ENTER_WINDOW
