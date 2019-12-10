@@ -54,6 +54,7 @@ static int cb_motion(xcb_generic_event_t *);
 static int cb_enter(xcb_generic_event_t *);
 static int cb_focus(xcb_generic_event_t *);
 static int cb_configreq(xcb_generic_event_t *);
+static int cb_configure(xcb_generic_event_t *);
 
 int verbose = 0;
 xcb_connection_t *conn;
@@ -106,6 +107,7 @@ static const struct ev_callback_t cb[] = {
 	{ XCB_FOCUS_IN,          cb_focus },
 	{ XCB_FOCUS_OUT,         cb_focus },
 	{ XCB_CONFIGURE_REQUEST, cb_configreq },
+	{ XCB_CONFIGURE_NOTIFY,  cb_configure },
 };
 
 void
@@ -623,6 +625,28 @@ cb_configreq(xcb_generic_event_t *ev)
 	return 0;
 }
 
+int
+cb_configure(xcb_generic_event_t *ev)
+{
+	xcb_configure_notify_event_t *e;
+
+	e = (xcb_configure_notify_event_t *)ev;
+
+	if (verbose)
+		fprintf(stderr, "%s 0x%08x %dx%d+%d+%d\n",
+			XEV(e), e->window,
+			e->width, e->height,
+			e->x, e->y);
+
+	/* update screen size when root window's size change */
+	if (e->window == scrn->root) {
+		scrn->width_in_pixels = e->width;
+		scrn->height_in_pixels = e->height;
+	}
+
+	return 0;
+}
+
 /*
  * This functions uses the ev_callback_t structure to call out a specific
  * callback function for each EVENT fired.
@@ -671,7 +695,8 @@ main (int argc, char *argv[])
 	curwid = scrn->root;
 
 	/* needed to get notified of windows creation */
-	mask = XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY
+	mask = XCB_EVENT_MASK_STRUCTURE_NOTIFY
+		| XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY
 		| XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT;
 
 	if (!wm_reg_window_event(scrn->root, mask)) {
