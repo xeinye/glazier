@@ -617,7 +617,7 @@ cb_configreq(xcb_generic_event_t *ev)
 	wm_teleport(e->window, x, y, w, h);
 
 	if (e->value_mask & XCB_CONFIG_WINDOW_BORDER_WIDTH)
-		wm_set_border(e->border_width, -1, e->window);
+		wm_set_border(e->border_width, border_color, e->window);
 
 	if (e->value_mask & XCB_CONFIG_WINDOW_STACK_MODE)
 		wm_restack(e->window, e->stack_mode);
