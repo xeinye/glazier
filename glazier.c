@@ -364,7 +364,7 @@ cb_mouse_press(xcb_generic_event_t *ev)
 		wm_reg_cursor_event(scrn->root, mask, xhair[XHAIR_MOVE]);
 		break;
 	case 2:
-		curwid = wid;
+		/* teleport acts on the last focused window */
 		cursor.x = e->root_x;
 		cursor.y = e->root_y;
 		cursor.mode = GRAB_TELE;
@@ -502,20 +502,10 @@ cb_motion(xcb_generic_event_t *ev)
 		outline(scrn->root, x, y, w, h);
 		break;
 	case XCB_BUTTON_MASK_2:
-		if (cursor.x > e->root_x) {
-			x = e->root_x;
-			w = cursor.x - x;
-		} else {
-			x = cursor.x;
-			w = e->root_x - x;
-		}
-		if (cursor.y > e->root_y) {
-			y = e->root_y;
-			h = cursor.y - y;
-		} else {
-			y = cursor.y;
-			h = e->root_y - y;
-		}
+		x = MIN(cursor.x, e->root_x);
+		y = MIN(cursor.y, e->root_y);
+		w = MAX(cursor.x - e->root_x, e->root_x - cursor.x);
+		h = MAX(cursor.y - e->root_y, e->root_y - cursor.y);
 		outline(scrn->root, x, y, w, h);
 		break;
 	case XCB_BUTTON_MASK_3:
