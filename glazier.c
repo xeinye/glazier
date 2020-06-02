@@ -223,10 +223,10 @@ outline(xcb_drawable_t wid, int x, int y, int w, int h)
 	xcb_rectangle_t r;
 
 	gc = xcb_generate_id(conn);
-	mask = XCB_GC_FUNCTION | XCB_GC_LINE_WIDTH | XCB_GC_SUBWINDOW_MODE;
+	mask = XCB_GC_FUNCTION | XCB_GC_SUBWINDOW_MODE | XCB_GC_GRAPHICS_EXPOSURES;
 	val[0] = XCB_GX_INVERT;
-	val[1] = 0;
-	val[2] = XCB_SUBWINDOW_MODE_INCLUDE_INFERIORS;
+	val[1] = XCB_SUBWINDOW_MODE_INCLUDE_INFERIORS,
+	val[2] = 0;
 	xcb_create_gc(conn, gc, wid, mask, val);
 
 	/* redraw last rectangle to clear it */
@@ -451,6 +451,7 @@ cb_mouse_release(xcb_generic_event_t *ev)
 
 	/* clear last drawn rectangle to avoid leaving artefacts */
 	outline(scrn->root, 0, 0, 0, 0);
+	xcb_clear_area(conn, 0, scrn->root, 0, 0, 0, 0);
 
 	return 0;
 }
