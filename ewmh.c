@@ -1,3 +1,4 @@
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -46,6 +47,7 @@ enum {
 
 static void usage(const char *);
 static int ewmh_init();
+static int ewmh_wipe();
 static int ewmh_supported();
 static int ewmh_supportingwmcheck();
 static int ewmh_activewindow(xcb_window_t);
@@ -54,6 +56,7 @@ static int ewmh_type(xcb_window_t);
 
 xcb_connection_t *conn;
 xcb_screen_t     *scrn;
+xcb_window_t      ewmhwid; /* _NET_SUPPORTING_WM_CHECK target window */
 
 struct xatom ewmh[] = {
 	[_NET_SUPPORTED]                    = { .name = "_NET_SUPPORTED"                    },
@@ -84,6 +87,14 @@ usage(const char *name)
 	fprintf(stderr, "usage: %s [-h]\n", name);
 }
 
+void
+cleanup()
+{
+	printf("cleaning up\n");
+	ewmh_wipe();
+	wm_kill_xcb();
+}
+
 int
 ewmh_init()
 {
@@ -106,6 +117,21 @@ ewmh_init()
 }
 
 int
+ewmh_wipe()
+{
+	xcb_delete_property(conn, scrn->root, ewmh[_NET_SUPPORTED].atom);
+	xcb_delete_property(conn, scrn->root, ewmh[_NET_CLIENT_LIST].atom);
+	xcb_delete_property(conn, scrn->root, ewmh[_NET_CLIENT_LIST_STACKING].atom);
+	xcb_delete_property(conn, scrn->root, ewmh[_NET_ACTIVE_WINDOW].atom);
+	xcb_delete_property(conn, scrn->root, ewmh[_NET_SUPPORTING_WM_CHECK].atom);
+	xcb_destroy_window(conn, ewmhwid);
+
+	xcb_flush(conn);
+
+	return 0;
+}
+
+int
 ewmh_supported()
 {
 	uint32_t i;
@@ -121,20 +147,19 @@ int
 ewmh_supportingwmcheck()
 {
 	int val = 1;
-	xcb_window_t wid;
 
-	wid = xcb_generate_id(conn);
+	ewmhwid = xcb_generate_id(conn);
 
 	/* dummyest window ever. */
 	xcb_create_window(conn,
-		XCB_COPY_FROM_PARENT, wid, scrn->root,
+		XCB_COPY_FROM_PARENT, ewmhwid, scrn->root,
 		0, 0, 1, 1, 0,                     /* x, y, w, h, border */
 		XCB_WINDOW_CLASS_INPUT_ONLY,       /* no need for output */
 		scrn->root_visual,                 /* visual */
 		XCB_CW_OVERRIDE_REDIRECT, &val);   /* have the WM ignore us */
 
-	wm_set_atom(scrn->root, ewmh[_NET_SUPPORTING_WM_CHECK].atom, XCB_ATOM_ATOM, 1, &wid);
-	wm_set_atom(wid, ewmh[_NET_SUPPORTING_WM_CHECK].atom, XCB_ATOM_ATOM, 1, &wid);
+	wm_set_atom(scrn->root, ewmh[_NET_SUPPORTING_WM_CHECK].atom, XCB_ATOM_ATOM, 1, &ewmhwid);
+	wm_set_atom(ewmhwid, ewmh[_NET_SUPPORTING_WM_CHECK].atom, XCB_ATOM_ATOM, 1, &ewmhwid);
 
 	return 0;
 }
@@ -236,6 +261,9 @@ main (int argc, char *argv[])
 	wm_get_screen();
 	ewmh_init();
 
+	signal(SIGINT,  cleanup);
+	signal(SIGTERM, cleanup);
+
 	/* needed to get notified of windows creation */
 	mask = XCB_EVENT_MASK_STRUCTURE_NOTIFY | XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY;
 
@@ -265,5 +293,5 @@ main (int argc, char *argv[])
 		free(ev);
 	}
 
-	return wm_kill_xcb();
+	return -1;
 }
