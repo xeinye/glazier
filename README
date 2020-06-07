@@ -1,8 +1,43 @@
 glazier
 =======
+X windows manipulator.
 
 > A glazier is a skilled tradesman responsible for cutting, installing, and
 > removing glass
 	-- wikipedia
 
 In other words, a glazier manipulates windows.
+
+Features
+-----
+* Floating window management
+* Sloppy Focus
+* All manipulations done with the mouse
+* Cool operations like teleport, inflate/deflate
+* 100% compatible with wmutils(1)
+* Optional EWMH support through ewmh(1)
+
+Usage
+-----
+Refer to the glazier(1) manual page for details and examples.
+
+Window manipulations are performed by holding `Mod1`, and using mouse
+buttons to perform the following operations:
+
+* left click: move window
+* right click: resize window
+* middle click: teleport window (move + resize)
+* scroll up: inflate window
+* scroll down: deflate window
+
+Installation
+-----
+Edit config.mk as needed, then build/install with the following commands:
+
+	make
+	make install
+
+Require [libxcb][0] and [libwm][1].
+
+[0]: https://xcb.freedesktop.org
+[1]: http://git.z3bra.org/libwm/log.html
