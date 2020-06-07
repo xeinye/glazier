@@ -456,6 +456,7 @@ cb_mouse_release(xcb_generic_event_t *ev)
 	w = wm_get_attribute(curwid, ATTR_W);
 	h = wm_get_attribute(curwid, ATTR_H);
 	xcb_clear_area(conn, 1, curwid, 0, 0, w, h);
+	wm_set_border(-1, border_color_active, curwid);
 
 	return 0;
 }
