@@ -1,0 +1,100 @@
+.Dd 2020-06-07
+.Dt GLAZIER 1
+.Os POSIX.1
+.Sh NAME
+.Nm glazier
+.Nd X window manipulator
+.Sh SYNOPSIS
+.Nm glazier
+.Op Fl hv
+.Sh DESCRIPTION
+.Nm
+is a floating window manipulation utility for X11. Its goal is to keep
+track of the focused window (using sloppy focus technique) and let the
+user move/resize windows with the mouse pointer.
+.Bl -tag -width Ds
+.It Fl h
+Print a help message.
+.It Fl v
+Increase verbosity. There are two levels of logging:
+.Pp
+.Bl -enum -compact
+.It
+Print X events related to window management
+.It
+Print all received X events
+.El
+.El
+.Sh WINDOW MANIPULATIONS
+.Nm
+supports different 5 operations on windows, each bound to a mouse
+button. To trigger these operations, a modifier key (default: Mod1)
+must be held before pressing the appropriate mouse button.
+.Pp
+.Bl -enum -compact
+.It
+.Em Move .
+The window will be moved to the specified location once left
+button is released.
+.It
+.Em Resize .
+The window will be resized to the area between the top-left corner and
+the pointer.
+.It
+.Em Teleport .
+The window will be teleported in the area drawn with the middle button held.
+.It
+.Em Inflate .
+Grow the window size in all 4 directions by
+.Em move_step
+pixels when scrolling up.
+.It
+.Em Deflate .
+Shrink the window size in all 4 directions by
+.Em move_step
+pixels when scrolling down.
+.El
+.Pp
+.Sy Note :
+The numbers correspond to the mouse button being pressed. Only one
+operation at a time is supported. The
+.Em move_step
+factor is specified at compilation time in
+.Pa config.h .
+.Sh IMPLEMENTATION NOTES
+.Ss Extended Window Manager Hints
+.Nm
+does not comply with the EWMH specification. The specification exist
+for applications to instruct a window manager how it should behave. I
+believe that the user should be left with the responsibility of managing
+applications, and not the other way around.
+.Pp
+If you need (partial) compliance with these specification, consider using
+.Xr ewmh 1 .
+.Ss Keyboard
+Manipulating windows with the keyboard is both efficient, and
+fast. However,
+.Nm
+cannot do that.
+Implementing that within a window manager is often too rigid, and doesn't
+provide enough flexibility to the user. For this reason, I think it is
+more valuable to use external tools like 
+.Xr wmutils 1
+for this.
+.Ss Configuration files
+There is not configuration files in
+.Nm .
+The software is configured at compilation time, by tweaking the
+.Pa config.h
+file. Refer to this file for precisions on what can be configured.
+.Sh ENVIRONMENT
+.Bl -tag -width "DISPLAY"
+.It Ev DISPLAY
+.Nm
+starts on this display.
+.El
+.Sh SEE ALSO
+.Xr ewmh 1 ,
+.Xr wmutils 1
+.Sh AUTHORS
+.An Willy Goiffon Aq Mt dev@z3bra.org
