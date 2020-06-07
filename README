@@ -2,11 +2,10 @@ glazier
 =======
 X windows manipulator.
 
-> A glazier is a skilled tradesman responsible for cutting, installing, and
-> removing glass
-	-- wikipedia
-
-In other words, a glazier manipulates windows.
+Windows are manipulated using the mouse, and can be moved/resized in
+multiple ways. This utility is better used in combination with others like
+[wmutils][0] and [sxhkd][1] which leverage the keyboard interface,
+rather than mouse usage.
 
 Features
 -----
@@ -37,7 +36,9 @@ Edit config.mk as needed, then build/install with the following commands:
 	make
 	make install
 
-Require [libxcb][0] and [libwm][1].
+Require [libxcb][2] and [libwm][3].
 
-[0]: https://xcb.freedesktop.org
-[1]: http://git.z3bra.org/libwm/log.html
+[0]: https://github.com/wmutils/core
+[1]: https://github.com/baskerville/sxhkd
+[2]: https://xcb.freedesktop.org
+[3]: http://git.z3bra.org/libwm/log.html
