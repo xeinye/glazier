@@ -4,7 +4,6 @@
 #include <string.h>
 #include <xcb/xcb.h>
 #include <xcb/xcb_cursor.h>
-#include <xcb/xcb_ewmh.h>
 
 #include "arg.h"
 #include "wm.h"
