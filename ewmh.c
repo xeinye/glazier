@@ -157,8 +157,8 @@ ewmh_supportingwmcheck()
 		scrn->root_visual,                 /* visual */
 		XCB_CW_OVERRIDE_REDIRECT, &val);   /* have the WM ignore us */
 
-	wm_set_atom(scrn->root, ewmh[_NET_SUPPORTING_WM_CHECK].atom, XCB_ATOM_ATOM, 1, &ewmhwid);
-	wm_set_atom(ewmhwid, ewmh[_NET_SUPPORTING_WM_CHECK].atom, XCB_ATOM_ATOM, 1, &ewmhwid);
+	wm_set_atom(scrn->root, ewmh[_NET_SUPPORTING_WM_CHECK].atom, XCB_ATOM_WINDOW, 1, &ewmhwid);
+	wm_set_atom(ewmhwid, ewmh[_NET_SUPPORTING_WM_CHECK].atom, XCB_ATOM_WINDOW, 1, &ewmhwid);
 
 	return 0;
 }
