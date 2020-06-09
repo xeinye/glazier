@@ -737,7 +737,7 @@ crossedge(xcb_window_t wid)
 int
 snaptoedge(xcb_window_t wid)
 {
-	int tp, b;
+	int b;
 	struct geom_t *m, w;
 
 	b   = wm_get_attribute(wid, ATTR_B);
@@ -747,16 +747,13 @@ snaptoedge(xcb_window_t wid)
 	w.h = wm_get_attribute(wid, ATTR_H);
 	m = monitor(w.x, w.y);
 
-	tp = 0;
+	if (w.w + 2*b > m->w) w.w = m->w - 2*b;
+	if (w.h + 2*b > m->h) w.h = m->h - 2*b;
 
-	if (w.w + 2*b > m->w) { tp = 1; w.w = m->w - 2*b; }
-	if (w.h + 2*b > m->h) { tp = 1; w.h = m->h - 2*b; }
+	if (w.x + w.w + 2*b > m->x + m->w) w.x = MAX(m->x + b, m->x + m->w - w.w - 2*b);
+	if (w.y + w.h + 2*b > m->y + m->h) w.y = MAX(m->y + b, m->y + m->h - w.h - 2*b);
 
-	if (w.x + w.w + 2*b > m->x + m->w) { tp = 1; w.x = MAX(m->x + b, m->x + m->w - w.w - 2*b); }
-	if (w.y + w.h + 2*b > m->y + m->h) { tp = 1; w.y = MAX(m->y + b, m->y + m->h - w.h - 2*b); }
-
-	if (tp)
-		wm_teleport(wid, w.x, w.y, w.w, w.h);
+	wm_teleport(wid, w.x, w.y, w.w, w.h);
 	
 	return 0;
 }
