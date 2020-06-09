@@ -180,9 +180,14 @@ ewmh_clientlist()
 
 	l = calloc(n, sizeof(*w));
 
-	for (i=0, c=0; i<n; i++)
-		if (!wm_is_ignored(w[i]) && ewmh_type(w[i]) == NORMAL)
+	for (i=0, c=0; i<n; i++) {
+		if (ewmh_type(w[i]) != NORMAL) {
+			xcb_change_window_attributes(conn, w[i], XCB_CW_OVERRIDE_REDIRECT, &(int[]){1});
+			xcb_flush(conn);
+		}
+		if (!wm_is_ignored(w[i]))
 			l[c++] = w[i];
+	}
 
 	free(w);
 
