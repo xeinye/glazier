@@ -137,6 +137,7 @@ int
 adopt(xcb_window_t wid)
 {
 	int x, y, w, h;
+	struct geom_t *m;
 
 	if (wm_is_ignored(wid))
 		return -1;
@@ -150,11 +151,12 @@ adopt(xcb_window_t wid)
 
 		if (!x && !y) {
 			wm_get_cursor(0, scrn->root, &x, &y);
-			x = MAX(0, x - w/2);
-			y = MAX(0, y - h/2);
+			m = monitor(x, y);
+			x = MAX(m->x, x - w/2);
+			y = MAX(m->y, y - h/2);
 		}
 
-		wm_teleport(wid, MAX(0, x), MAX(0, y), w, h);
+		wm_teleport(wid, x, y, w, h);
 	}
 
 	return wm_reg_window_event(wid, XCB_EVENT_MASK_ENTER_WINDOW
