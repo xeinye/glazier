@@ -203,6 +203,9 @@ ewmh_type(xcb_window_t window)
 
 	atoms = wm_get_atom(window, ewmh[_NET_WM_WINDOW_TYPE].atom, XCB_ATOM_ATOM, &n);
 
+	if (!atoms)
+		return NORMAL;
+
 	/*
 	 * as per the EWMH spec, when multiple types are
 	 * applicable, they must be listed from the most to least
