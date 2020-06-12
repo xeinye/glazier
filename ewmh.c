@@ -183,9 +183,8 @@ ewmh_clientlist()
 	for (i=0, c=0; i<n; i++) {
 		if (ewmh_type(w[i]) != NORMAL) {
 			xcb_change_window_attributes(conn, w[i], XCB_CW_OVERRIDE_REDIRECT, &(int[]){1});
-			xcb_flush(conn);
 		}
-		if (!wm_is_ignored(w[i]))
+		if (!wm_is_listable(w[i], 0))
 			l[c++] = w[i];
 	}
 
@@ -295,8 +294,10 @@ main (int argc, char *argv[])
 		case XCB_FOCUS_IN:
 			ewmh_activewindow(((xcb_focus_in_event_t *)ev)->event);
 			break;
+		case XCB_MAP_NOTIFY:
+			if (ewmh_type(((xcb_map_notify_event_t *)ev)->window) == POPUP)
+				wm_restack(((xcb_map_notify_event_t *)ev)->window, XCB_STACK_MODE_ABOVE);
 		}
-
 		free(ev);
 	}
 
