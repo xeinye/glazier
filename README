@@ -15,6 +15,7 @@ Features
 * Cool operations like teleport, inflate/deflate
 * 100% compatible with wmutils(1)
 * Optional EWMH support through ewmh(1)
+* Multi-monitor support through Xrandr(3)
 
 Usage
 -----
