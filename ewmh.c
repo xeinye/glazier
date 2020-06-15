@@ -189,9 +189,9 @@ ewmh_clientlist()
 	l = calloc(n, sizeof(*w));
 
 	for (i=0, c=0; i<n; i++) {
-		if (ewmh_type(w[i]) != NORMAL) {
-			xcb_change_window_attributes(conn, w[i], XCB_CW_OVERRIDE_REDIRECT, &(int[]){1});
-		}
+		if (ewmh_type(w[i]) != NORMAL)
+			xcb_change_window_attributes(conn, w[i], XCB_CW_OVERRIDE_REDIRECT, &(int){1});
+
 		if (!wm_is_listable(w[i], 0))
 			l[c++] = w[i];
 	}

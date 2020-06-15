@@ -81,6 +81,11 @@ _NET_WM_WINDOW_TYPE_NORMAL
 Because we don't know the order in which the running window manager is
 storing the windows, _NET_CLIENT_LIST also displays the window IDs in
 their stacking order.
+.Pp
+All other windows will have their
+.Em override_redirect
+attribute forcely set to 1, so that window managers without support for
+EWMH atoms can ignore them.
 .Ss _NET_ACTIVE_WINDOW
 This hint is updated whenever an event of type
 .Em FOCUS_IN
