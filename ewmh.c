@@ -258,8 +258,6 @@ ewmh_type(xcb_window_t window)
 int
 ewmh_message(xcb_client_message_event_t *ev)
 {
-	unsigned int i;
-
 	/* ignore all other messages */
 	if (ev->type != ewmh[_NET_WM_STATE].atom)
 		return -1;
