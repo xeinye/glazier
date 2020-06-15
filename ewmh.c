@@ -15,6 +15,10 @@ struct xatom {
 	xcb_atom_t atom;
 };
 
+struct geometry {
+	uint32_t x, y, w, h, b;
+};
+
 enum EWMH_TYPES {
 	IGNORE,
 	NORMAL,
@@ -27,6 +31,8 @@ enum {
 	_NET_CLIENT_LIST_STACKING,
 	_NET_SUPPORTING_WM_CHECK,
 	_NET_ACTIVE_WINDOW,
+	_NET_WM_STATE,
+	_NET_WM_STATE_FULLSCREEN,
 	_NET_WM_WINDOW_TYPE,
 	_NET_WM_WINDOW_TYPE_DESKTOP,
 	_NET_WM_WINDOW_TYPE_DOCK,
@@ -52,6 +58,8 @@ static int ewmh_supportingwmcheck();
 static int ewmh_activewindow(xcb_window_t);
 static int ewmh_clientlist();
 static int ewmh_type(xcb_window_t);
+static int ewmh_message(xcb_client_message_event_t *);
+static int ewmh_fullscreen(xcb_window_t, int);
 
 xcb_connection_t *conn;
 xcb_screen_t     *scrn;
@@ -63,6 +71,8 @@ struct xatom ewmh[] = {
 	[_NET_CLIENT_LIST_STACKING]         = { .name = "_NET_CLIENT_LIST_STACKING"         },
 	[_NET_SUPPORTING_WM_CHECK]          = { .name = "_NET_SUPPORTING_WM_CHECK"          },
 	[_NET_ACTIVE_WINDOW]                = { .name = "_NET_ACTIVE_WINDOW"                },
+	[_NET_WM_STATE]                     = { .name = "_NET_WM_STATE"                     },
+	[_NET_WM_STATE_FULLSCREEN]          = { .name = "_NET_WM_STATE_FULLSCREEN"          },
 	[_NET_WM_WINDOW_TYPE]               = { .name = "_NET_WM_WINDOW_TYPE"               },
 	[_NET_WM_WINDOW_TYPE_DESKTOP]       = { .name = "_NET_WM_WINDOW_TYPE_DESKTOP"       },
 	[_NET_WM_WINDOW_TYPE_DOCK]          = { .name = "_NET_WM_WINDOW_TYPE_DOCK"          },
@@ -246,6 +256,77 @@ ewmh_type(xcb_window_t window)
 }
 
 int
+ewmh_message(xcb_client_message_event_t *ev)
+{
+	unsigned int i;
+
+	/* ignore all other messages */
+	if (ev->type != ewmh[_NET_WM_STATE].atom)
+		return -1;
+
+	if (ev->data.data32[1] == ewmh[_NET_WM_STATE_FULLSCREEN].atom
+	 || ev->data.data32[2] == ewmh[_NET_WM_STATE_FULLSCREEN].atom) {
+		ewmh_fullscreen(ev->window, ev->data.data32[0]);
+		return 0;
+	}
+
+	return 1;
+}
+
+int
+ewmh_fullscreen(xcb_window_t wid, int state)
+{
+	size_t n;
+	int isfullscreen;
+	xcb_atom_t *atom, orig;
+	struct geometry g, *d;
+
+	atom = wm_get_atom(wid, ewmh[_NET_WM_STATE].atom, XCB_ATOM_ATOM, &n);
+	orig = wm_add_atom("ORIGINAL_SIZE", strlen("ORIGINAL_SIZE"));
+
+	isfullscreen = (atom && *atom == ewmh[_NET_WM_STATE_FULLSCREEN].atom);
+
+	switch (state) {
+	case -1:
+		return isfullscreen;
+		break; /* NOTREACHED */
+
+	case 0: /* _NET_WM_STATE_REMOVE */
+		wm_set_atom(wid, ewmh[_NET_WM_STATE].atom, XCB_ATOM_ATOM, 0, NULL);
+		d = wm_get_atom(wid, orig, XCB_ATOM_CARDINAL, &n);
+		if (!d || !n) return -1;
+		wm_set_border(d->b, -1, wid);
+		wm_teleport(wid, d->x, d->y, d->w, d->h);
+		xcb_delete_property(conn, wid, orig);
+		break;
+
+	case 1: /* _NET_WM_STATE_ADD */
+		/* save current window geometry */
+		g.x = wm_get_attribute(wid, ATTR_X);
+		g.y = wm_get_attribute(wid, ATTR_Y);
+		g.w = wm_get_attribute(wid, ATTR_W);
+		g.h = wm_get_attribute(wid, ATTR_H);
+		g.b = wm_get_attribute(wid, ATTR_B);
+		wm_set_atom(wid, orig, XCB_ATOM_CARDINAL, 5, &g);
+
+		/* move window fullscreen */
+		g.w = wm_get_attribute(scrn->root, ATTR_W);
+		g.h = wm_get_attribute(scrn->root, ATTR_H);
+		wm_set_border(0, -1, wid);
+		wm_teleport(wid, 0, 0, g.w, g.h);
+		wm_set_atom(wid, ewmh[_NET_WM_STATE].atom, XCB_ATOM_ATOM, 1, &ewmh[_NET_WM_STATE_FULLSCREEN].atom);
+		break;
+
+	case 2: /* _NET_WM_STATE_TOGGLE */
+		printf("0x%08x !fullscreen\n", wid);
+		ewmh_fullscreen(wid, !isfullscreen);
+		break;
+	}
+
+	return 0;
+}
+
+int
 main (int argc, char *argv[])
 {
 	int mask;
@@ -289,6 +370,10 @@ main (int argc, char *argv[])
 			/* FALLTHROUGH */
 		case XCB_DESTROY_NOTIFY:
 			ewmh_clientlist();
+			break;
+
+		case XCB_CLIENT_MESSAGE:
+			ewmh_message((xcb_client_message_event_t *)ev);
 			break;
 
 		case XCB_FOCUS_IN:
