@@ -7,6 +7,7 @@
 #include <xcb/randr.h>
 
 #include "arg.h"
+#include "randr.h"
 #include "wm.h"
 
 #define LEN(x) (sizeof(x)/sizeof(x[0]))
@@ -14,10 +15,6 @@
 struct xatom {
 	char *name;
 	xcb_atom_t atom;
-};
-
-struct geometry {
-	uint32_t x, y, w, h, b;
 };
 
 enum EWMH_TYPES {
@@ -272,46 +269,13 @@ ewmh_message(xcb_client_message_event_t *ev)
 	return 1;
 }
 
-
-/*
- * Return the geometry of the monitor pointed to by the given coordinates
- */
-int
-randr_monitor(int x, int y, struct geometry *m)
-{
-	xcb_randr_get_monitors_cookie_t c;
-	xcb_randr_get_monitors_reply_t *r;
-	xcb_randr_monitor_info_iterator_t i;
-
-	/* get_active: ignore inactive monitors */
-	c = xcb_randr_get_monitors(conn, scrn->root, 1);
-	r = xcb_randr_get_monitors_reply(conn, c, NULL);
-	i = xcb_randr_get_monitors_monitors_iterator(r);
-
-	while (i.rem > 0) {
-		if (x >= i.data->x
-		 && y >= i.data->y
-		 && x <= i.data->width + i.data->x
-		 && y <= i.data->height + i.data->y) {
-			m->x = i.data->x;
-			m->y = i.data->y;
-			m->w = i.data->width;
-			m->h = i.data->height;
-			return 0;
-		}
-		xcb_randr_monitor_info_next(&i);
-	}
-
-	return -1;
-}
-
 int
 ewmh_fullscreen(xcb_window_t wid, int state)
 {
 	size_t n;
 	int isfullscreen;
 	xcb_atom_t *atom, original_size;
-	struct geometry g, *origin;
+	struct geometry_t g, *origin;
 
 	atom = wm_get_atom(wid, ewmh[_NET_WM_STATE].atom, XCB_ATOM_ATOM, &n);
 	original_size = wm_add_atom("ORIGINAL_SIZE", strlen("ORIGINAL_SIZE"));
@@ -325,7 +289,7 @@ ewmh_fullscreen(xcb_window_t wid, int state)
 
 	case 0: /* _NET_WM_STATE_REMOVE */
 		wm_set_atom(wid, ewmh[_NET_WM_STATE].atom, XCB_ATOM_ATOM, 0, NULL);
-		origin = (struct geometry *)wm_get_atom(wid, original_size, XCB_ATOM_CARDINAL, &n);
+		origin = wm_get_atom(wid, original_size, XCB_ATOM_CARDINAL, &n);
 		if (!origin || n < 5)
 			return -1;
 
@@ -343,7 +307,7 @@ ewmh_fullscreen(xcb_window_t wid, int state)
 		g.b = wm_get_attribute(wid, ATTR_B);
 		wm_set_atom(wid, original_size, XCB_ATOM_CARDINAL, 5, &g);
 
-		if (randr_monitor(g.x, g.y, &g) < 0)
+		if (randr_geometry(g.x, g.y, &g) < 0)
 			return -1;
 
 		/* move window fullscreen */

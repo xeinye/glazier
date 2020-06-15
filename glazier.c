@@ -5,6 +5,7 @@
 #include <xcb/randr.h>
 
 #include "arg.h"
+#include "randr.h"
 #include "wm.h"
 
 #define LEN(x) (sizeof(x)/sizeof(x[0]))
@@ -20,10 +21,6 @@ struct ev_callback_t {
 struct cursor_t {
 	int x, y, b;
 	int mode;
-};
-
-struct geom_t {
-	int x, y, w, h;
 };
 
 enum {
@@ -50,7 +47,6 @@ static int outline(xcb_drawable_t, int, int, int, int);
 static int ev_callback(xcb_generic_event_t *);
 
 /* XRandR specific functions */
-static struct geom_t * monitor(int, int);
 static int crossedge(xcb_window_t);
 static int snaptoedge(xcb_window_t);
 
@@ -267,7 +263,7 @@ int
 cb_create(xcb_generic_event_t *ev)
 {
 	int x, y, w, h;
-	struct geom_t *m;
+	struct geometry_t m;
 	xcb_create_notify_event_t *e;
 
 	e = (xcb_create_notify_event_t *)ev;
@@ -283,16 +279,15 @@ cb_create(xcb_generic_event_t *ev)
 
 	if (!wm_is_mapped(e->window) && !x && !y) {
 		wm_get_cursor(0, scrn->root, &x, &y);
-		m = monitor(x, y);
 
 		/* move window under the cursor */
-		if (m) {
+		if (!randr_geometry(x, y, &m)) {
 			w = wm_get_attribute(e->window, ATTR_W);
 			h = wm_get_attribute(e->window, ATTR_H);
-			x = MAX(m->x, x - w/2);
-			y = MAX(m->y, y - h/2);
+			x = MAX(m.x, x - w/2);
+			y = MAX(m.y, y - h/2);
 
-			wm_teleport(e->window, MAX(m->x, x), MAX(m->y, y), w, h);
+			wm_teleport(e->window, MAX(m.x, x), MAX(m.y, y), w, h);
 		}
 	}
 
@@ -675,60 +670,25 @@ ev_callback(xcb_generic_event_t *ev)
 }
 
 /*
- * Return the geometry of the monitor pointed to by the given coordinates
- */
-struct geom_t *
-monitor(int x, int y)
-{
-	static struct geom_t m;
-	xcb_randr_get_monitors_cookie_t c;
-	xcb_randr_get_monitors_reply_t *r;
-	xcb_randr_monitor_info_iterator_t i;
-
-	/* get_active: ignore inactive monitors */
-	c = xcb_randr_get_monitors(conn, scrn->root, 1);
-	r = xcb_randr_get_monitors_reply(conn, c, NULL);
-	i = xcb_randr_get_monitors_monitors_iterator(r);
-
-	while (i.rem > 0) {
-		if (x >= i.data->x
-		 && y >= i.data->y
-		 && x <= i.data->width + i.data->x
-		 && y <= i.data->height + i.data->y) {
-			m.x = i.data->x;
-			m.y = i.data->y;
-			m.w = i.data->width;
-			m.h = i.data->height;
-			return &m;
-		}
-		xcb_randr_monitor_info_next(&i);
-	}
-
-	return NULL;
-}
-
-/*
  * Returns 1 is the given window's geometry crosses the monitor's edge,
  * and 0 otherwise
  */
 int
 crossedge(xcb_window_t wid)
 {
-	int b;
-	struct geom_t *m, w;
+	struct geometry_t m, w;
 
-	b   = wm_get_attribute(wid, ATTR_B);
+	w.b = wm_get_attribute(wid, ATTR_B);
 	w.x = wm_get_attribute(wid, ATTR_X);
 	w.y = wm_get_attribute(wid, ATTR_Y);
 	w.w = wm_get_attribute(wid, ATTR_W);
 	w.h = wm_get_attribute(wid, ATTR_H);
-	m = monitor(w.x, w.y);
-	if (!m)
+	if (randr_geometry(w.x, w.y, &m) < 0)
 		return -1;
 
-	if ((w.x + w.w + 2*b > m->x + m->w)
-	 || (w.y + w.h + 2*b > m->y + m->h))
-		return 1;
+	if ((w.x + w.w + 2*w.b > m.x + m.w)
+	 || (w.y + w.h + 2*w.b > m.y + m.h))
+		return -1;
 	
 	return 0;
 }
@@ -740,22 +700,21 @@ int
 snaptoedge(xcb_window_t wid)
 {
 	int b;
-	struct geom_t *m, w;
+	struct geometry_t m, w;
 
 	b   = wm_get_attribute(wid, ATTR_B);
 	w.x = wm_get_attribute(wid, ATTR_X);
 	w.y = wm_get_attribute(wid, ATTR_Y);
 	w.w = wm_get_attribute(wid, ATTR_W);
 	w.h = wm_get_attribute(wid, ATTR_H);
-	m = monitor(w.x, w.y);
-	if (!m)
+	if (randr_geometry(w.x, w.y, &m) < 0)
 		return -1;
 
-	if (w.w + 2*b > m->w) w.w = m->w - 2*b;
-	if (w.h + 2*b > m->h) w.h = m->h - 2*b;
+	if (w.w + 2*b > m.w) w.w = m.w - 2*b;
+	if (w.h + 2*b > m.h) w.h = m.h - 2*b;
 
-	if (w.x + w.w + 2*b > m->x + m->w) w.x = MAX(m->x + b, m->x + m->w - w.w - 2*b);
-	if (w.y + w.h + 2*b > m->y + m->h) w.y = MAX(m->y + b, m->y + m->h - w.h - 2*b);
+	if (w.x + w.w + 2*b > m.x + m.w) w.x = MAX(m.x + b, m.x + m.w - w.w - 2*b);
+	if (w.y + w.h + 2*b > m.y + m.h) w.y = MAX(m.y + b, m.y + m.h - w.h - 2*b);
 
 	wm_teleport(wid, w.x, w.y, w.w, w.h);
 	
