@@ -35,20 +35,35 @@ Only the following atoms are supported by
 .It
 _NET_SUPPORTED
 .It
+_NET_SUPPORTING_WM_CHECK
+.It
+_NET_WM_STATE
+.It
+_NET_WM_STATE_FULLSCREEN
+.It
 _NET_CLIENT_LIST
 .It
 _NET_CLIENT_LIST_STACKING
-.It
-_NET_SUPPORTING_WM_CHECK
 .It
 _NET_ACTIVE_WINDOW
 .It
 _NET_WM_WINDOW_TYPE (all types)
 .El
 .Ss _NET_SUPPORTING_WM_CHECK
-The specification require that a running window manager creates a window and point the hint to this window.
+The specification require that a running window manager creates a window
+and point the hint to this window.
 .Nm
-will set the override_redirect property on this window so that non-EWMH compliant window manager will ignore it as well.
+will set the override_redirect property on this window so that non-EWMH
+compliant window manager will ignore it as well.
+.Ss _NET_WM_STATE
+The only supported state in _NET_WM_STATE_FULLSCREEN. When such event
+is sent to the root window,
+.Nm
+will respond to the event accordingly. When setting a window fullscreen,
+its current position, size and border width are saved in an atom named
+ORIGINAL_SIZE.
+.Nm
+needs this atom to revert the window back to its original state.
 .Ss _NET_CLIENT_LIST
 .Ss _NET_CLIENT_LIST_STACKING
 These atoms hold the list of windows that are managed by the window manager
