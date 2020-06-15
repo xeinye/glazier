@@ -4,6 +4,7 @@
 #include <string.h>
 #include <xcb/xcb.h>
 #include <xcb/xcb_cursor.h>
+#include <xcb/randr.h>
 
 #include "arg.h"
 #include "wm.h"
@@ -271,16 +272,49 @@ ewmh_message(xcb_client_message_event_t *ev)
 	return 1;
 }
 
+
+/*
+ * Return the geometry of the monitor pointed to by the given coordinates
+ */
+int
+randr_monitor(int x, int y, struct geometry *m)
+{
+	xcb_randr_get_monitors_cookie_t c;
+	xcb_randr_get_monitors_reply_t *r;
+	xcb_randr_monitor_info_iterator_t i;
+
+	/* get_active: ignore inactive monitors */
+	c = xcb_randr_get_monitors(conn, scrn->root, 1);
+	r = xcb_randr_get_monitors_reply(conn, c, NULL);
+	i = xcb_randr_get_monitors_monitors_iterator(r);
+
+	while (i.rem > 0) {
+		if (x >= i.data->x
+		 && y >= i.data->y
+		 && x <= i.data->width + i.data->x
+		 && y <= i.data->height + i.data->y) {
+			m->x = i.data->x;
+			m->y = i.data->y;
+			m->w = i.data->width;
+			m->h = i.data->height;
+			return 0;
+		}
+		xcb_randr_monitor_info_next(&i);
+	}
+
+	return -1;
+}
+
 int
 ewmh_fullscreen(xcb_window_t wid, int state)
 {
 	size_t n;
 	int isfullscreen;
-	xcb_atom_t *atom, orig;
-	struct geometry g, *d;
+	xcb_atom_t *atom, original_size;
+	struct geometry g, *origin;
 
 	atom = wm_get_atom(wid, ewmh[_NET_WM_STATE].atom, XCB_ATOM_ATOM, &n);
-	orig = wm_add_atom("ORIGINAL_SIZE", strlen("ORIGINAL_SIZE"));
+	original_size = wm_add_atom("ORIGINAL_SIZE", strlen("ORIGINAL_SIZE"));
 
 	isfullscreen = (atom && *atom == ewmh[_NET_WM_STATE_FULLSCREEN].atom);
 
@@ -291,11 +325,13 @@ ewmh_fullscreen(xcb_window_t wid, int state)
 
 	case 0: /* _NET_WM_STATE_REMOVE */
 		wm_set_atom(wid, ewmh[_NET_WM_STATE].atom, XCB_ATOM_ATOM, 0, NULL);
-		d = wm_get_atom(wid, orig, XCB_ATOM_CARDINAL, &n);
-		if (!d || !n) return -1;
-		wm_set_border(d->b, -1, wid);
-		wm_teleport(wid, d->x, d->y, d->w, d->h);
-		xcb_delete_property(conn, wid, orig);
+		origin = (struct geometry *)wm_get_atom(wid, original_size, XCB_ATOM_CARDINAL, &n);
+		if (!origin || n < 5)
+			return -1;
+
+		wm_set_border(origin->b, -1, wid);
+		wm_teleport(wid, origin->x, origin->y, origin->w, origin->h);
+		xcb_delete_property(conn, wid, original_size);
 		break;
 
 	case 1: /* _NET_WM_STATE_ADD */
@@ -305,11 +341,12 @@ ewmh_fullscreen(xcb_window_t wid, int state)
 		g.w = wm_get_attribute(wid, ATTR_W);
 		g.h = wm_get_attribute(wid, ATTR_H);
 		g.b = wm_get_attribute(wid, ATTR_B);
-		wm_set_atom(wid, orig, XCB_ATOM_CARDINAL, 5, &g);
+		wm_set_atom(wid, original_size, XCB_ATOM_CARDINAL, 5, &g);
+
+		if (randr_monitor(g.x, g.y, &g) < 0)
+			return -1;
 
 		/* move window fullscreen */
-		g.w = wm_get_attribute(scrn->root, ATTR_W);
-		g.h = wm_get_attribute(scrn->root, ATTR_H);
 		wm_set_border(0, -1, wid);
 		wm_teleport(wid, 0, 0, g.w, g.h);
 		wm_set_atom(wid, ewmh[_NET_WM_STATE].atom, XCB_ATOM_ATOM, 1, &ewmh[_NET_WM_STATE_FULLSCREEN].atom);
