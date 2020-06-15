@@ -136,29 +136,8 @@ usage(char *name)
 int
 adopt(xcb_window_t wid)
 {
-	int x, y, w, h;
-	struct geom_t *m;
-
 	if (wm_is_ignored(wid))
 		return -1;
-
-	x = wm_get_attribute(wid, ATTR_X);
-	y = wm_get_attribute(wid, ATTR_Y);
-	m = monitor(x, y);
-
-	if (!wm_is_mapped(wid)) {
-		w = wm_get_attribute(wid, ATTR_W);
-		h = wm_get_attribute(wid, ATTR_H);
-
-		if (!x && !y) {
-			wm_get_cursor(0, scrn->root, &x, &y);
-			m = monitor(x, y);
-			x = MAX(m->x, x - w/2);
-			y = MAX(m->y, y - h/2);
-		}
-
-		wm_teleport(wid, MAX(m->x, x), MAX(m->y, y), w, h);
-	}
 
 	return wm_reg_window_event(wid, XCB_EVENT_MASK_ENTER_WINDOW
 		| XCB_EVENT_MASK_FOCUS_CHANGE
@@ -287,6 +266,8 @@ cb_default(xcb_generic_event_t *ev)
 int
 cb_create(xcb_generic_event_t *ev)
 {
+	int x, y, w, h;
+	struct geom_t *m;
 	xcb_create_notify_event_t *e;
 
 	e = (xcb_create_notify_event_t *)ev;
@@ -296,6 +277,21 @@ cb_create(xcb_generic_event_t *ev)
 
 	if (verbose)
 		fprintf(stderr, "%s 0x%08x\n", XEV(e), e->window);
+
+	if (!wm_is_mapped(e->window)) {
+		wm_get_cursor(0, scrn->root, &x, &y);
+		m = monitor(x, y);
+
+		/* move window under the cursor */
+		if (m) {
+			w = wm_get_attribute(e->window, ATTR_W);
+			h = wm_get_attribute(e->window, ATTR_H);
+			x = MAX(m->x, x - w/2);
+			y = MAX(m->y, y - h/2);
+
+			wm_teleport(e->window, MAX(m->x, x), MAX(m->y, y), w, h);
+		}
+	}
 
 	adopt(e->window);
 
@@ -724,6 +720,8 @@ crossedge(xcb_window_t wid)
 	w.w = wm_get_attribute(wid, ATTR_W);
 	w.h = wm_get_attribute(wid, ATTR_H);
 	m = monitor(w.x, w.y);
+	if (!m)
+		return -1;
 
 	if ((w.x + w.w + 2*b > m->x + m->w)
 	 || (w.y + w.h + 2*b > m->y + m->h))
@@ -747,6 +745,8 @@ snaptoedge(xcb_window_t wid)
 	w.w = wm_get_attribute(wid, ATTR_W);
 	w.h = wm_get_attribute(wid, ATTR_H);
 	m = monitor(w.x, w.y);
+	if (!m)
+		return -1;
 
 	if (w.w + 2*b > m->w) w.w = m->w - 2*b;
 	if (w.h + 2*b > m->h) w.h = m->h - 2*b;
