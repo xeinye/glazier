@@ -2,11 +2,11 @@
 
 all:V: glazier ewmh
 
-glazier: glazier.o libwm/libwm.a
-	${LD} ${LDFLAGS} $prereq ${LDLIBS} -o $target
+glazier: glazier.o randr.o libwm/libwm.a
+	${LD} ${LDFLAGS} $prereq ${LIBS} -o $target
 
-ewmh: ewmh.o libwm/libwm.a
-	${LD} ${LDFLAGS} $prereq ${LDLIBS} -o $target
+ewmh: ewmh.o randr.o libwm/libwm.a
+	${LD} ${LDFLAGS} $prereq ${LIBS} -o $target
 
 glazier.o: glazier.c config.h
 
