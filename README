@@ -42,4 +42,4 @@ Require [libxcb][2] and [libwm][3].
 [0]: https://github.com/wmutils/core
 [1]: https://github.com/baskerville/sxhkd
 [2]: https://xcb.freedesktop.org
-[3]: http://git.z3bra.org/libwm/log.html
+[3]: http://z3bra.org/libwm
