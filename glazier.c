@@ -278,7 +278,10 @@ cb_create(xcb_generic_event_t *ev)
 	if (verbose)
 		fprintf(stderr, "%s 0x%08x\n", XEV(e), e->window);
 
-	if (!wm_is_mapped(e->window)) {
+	x = wm_get_attribute(e->window, ATTR_X);
+	y = wm_get_attribute(e->window, ATTR_Y);
+
+	if (!wm_is_mapped(e->window) && !x && !y) {
 		wm_get_cursor(0, scrn->root, &x, &y);
 		m = monitor(x, y);
 
