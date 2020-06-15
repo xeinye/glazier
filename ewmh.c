@@ -192,7 +192,7 @@ ewmh_clientlist()
 		if (ewmh_type(w[i]) != NORMAL)
 			xcb_change_window_attributes(conn, w[i], XCB_CW_OVERRIDE_REDIRECT, &(int){1});
 
-		if (!wm_is_listable(w[i], 0))
+		if (wm_is_listable(w[i], 0))
 			l[c++] = w[i];
 	}
 
