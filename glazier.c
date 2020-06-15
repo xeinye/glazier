@@ -144,6 +144,7 @@ adopt(xcb_window_t wid)
 
 	x = wm_get_attribute(wid, ATTR_X);
 	y = wm_get_attribute(wid, ATTR_Y);
+	m = monitor(x, y);
 
 	if (!wm_is_mapped(wid)) {
 		w = wm_get_attribute(wid, ATTR_W);
@@ -156,7 +157,7 @@ adopt(xcb_window_t wid)
 			y = MAX(m->y, y - h/2);
 		}
 
-		wm_teleport(wid, x, y, w, h);
+		wm_teleport(wid, MAX(m->x, x), MAX(m->y, y), w, h);
 	}
 
 	return wm_reg_window_event(wid, XCB_EVENT_MASK_ENTER_WINDOW
