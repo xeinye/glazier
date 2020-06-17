@@ -5,7 +5,6 @@
 #include <xcb/randr.h>
 
 #include "arg.h"
-#include "randr.h"
 #include "wm.h"
 
 #define LEN(x) (sizeof(x)/sizeof(x[0]))
@@ -263,7 +262,7 @@ int
 cb_create(xcb_generic_event_t *ev)
 {
 	int x, y, w, h;
-	struct geometry_t m;
+	xcb_randr_monitor_info_t *m;
 	xcb_create_notify_event_t *e;
 
 	e = (xcb_create_notify_event_t *)ev;
@@ -281,13 +280,13 @@ cb_create(xcb_generic_event_t *ev)
 		wm_get_cursor(0, scrn->root, &x, &y);
 
 		/* move window under the cursor */
-		if (!randr_geometry(x, y, &m)) {
+		if ((m = wm_get_monitor(wm_find_monitor(x, y)))) {
 			w = wm_get_attribute(e->window, ATTR_W);
 			h = wm_get_attribute(e->window, ATTR_H);
-			x = MAX(m.x, x - w/2);
-			y = MAX(m.y, y - h/2);
+			x = MAX(m->x, x - w/2);
+			y = MAX(m->y, y - h/2);
 
-			wm_teleport(e->window, MAX(m.x, x), MAX(m.y, y), w, h);
+			wm_teleport(e->window, x, y, w, h);
 		}
 	}
 
@@ -676,21 +675,27 @@ ev_callback(xcb_generic_event_t *ev)
 int
 crossedge(xcb_window_t wid)
 {
-	struct geometry_t m, w;
+	int r = 0;
+	int x, y, w, h, b;
+	xcb_randr_monitor_info_t *m;
 
-	w.b = wm_get_attribute(wid, ATTR_B);
-	w.x = wm_get_attribute(wid, ATTR_X);
-	w.y = wm_get_attribute(wid, ATTR_Y);
-	w.w = wm_get_attribute(wid, ATTR_W);
-	w.h = wm_get_attribute(wid, ATTR_H);
-	if (randr_geometry(w.x, w.y, &m) < 0)
+	b = wm_get_attribute(wid, ATTR_B);
+	x = wm_get_attribute(wid, ATTR_X);
+	y = wm_get_attribute(wid, ATTR_Y);
+	w = wm_get_attribute(wid, ATTR_W);
+	h = wm_get_attribute(wid, ATTR_H);
+	m = wm_get_monitor(wm_find_monitor(x, y));
+
+	if (!m)
 		return -1;
 
-	if ((w.x + w.w + 2*w.b > m.x + m.w)
-	 || (w.y + w.h + 2*w.b > m.y + m.h))
-		return -1;
+	if ((x + w + 2*b > m->x + m->width)
+	 || (y + h + 2*b > m->y + m->height))
+		r = 1;
+
+	free(m);
 	
-	return 0;
+	return r;
 }
 
 /*
@@ -699,24 +704,26 @@ crossedge(xcb_window_t wid)
 int
 snaptoedge(xcb_window_t wid)
 {
-	int b;
-	struct geometry_t m, w;
+	int x, y, w, h, b;
+	xcb_randr_monitor_info_t *m;
 
-	b   = wm_get_attribute(wid, ATTR_B);
-	w.x = wm_get_attribute(wid, ATTR_X);
-	w.y = wm_get_attribute(wid, ATTR_Y);
-	w.w = wm_get_attribute(wid, ATTR_W);
-	w.h = wm_get_attribute(wid, ATTR_H);
-	if (randr_geometry(w.x, w.y, &m) < 0)
+	b = wm_get_attribute(wid, ATTR_B);
+	x = wm_get_attribute(wid, ATTR_X);
+	y = wm_get_attribute(wid, ATTR_Y);
+	w = wm_get_attribute(wid, ATTR_W);
+	h = wm_get_attribute(wid, ATTR_H);
+	m = wm_get_monitor(wm_find_monitor(x, y));
+
+	if (!m)
 		return -1;
 
-	if (w.w + 2*b > m.w) w.w = m.w - 2*b;
-	if (w.h + 2*b > m.h) w.h = m.h - 2*b;
+	if (w + 2*b > m->width)  w = m->width - 2*b;
+	if (h + 2*b > m->height) h = m->height - 2*b;
 
-	if (w.x + w.w + 2*b > m.x + m.w) w.x = MAX(m.x + b, m.x + m.w - w.w - 2*b);
-	if (w.y + w.h + 2*b > m.y + m.h) w.y = MAX(m.y + b, m.y + m.h - w.h - 2*b);
+	if (x + w + 2*b > m->x + m->width) x = MAX(m->x + b, m->x + m->width - w - 2*b);
+	if (y + h + 2*b > m->y + m->height) y = MAX(m->y + b, m->y + m->height - h - 2*b);
 
-	wm_teleport(wid, w.x, w.y, w.w, w.h);
+	wm_teleport(wid, x, y, w, h);
 	
 	return 0;
 }

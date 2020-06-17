@@ -7,7 +7,6 @@
 #include <xcb/randr.h>
 
 #include "arg.h"
-#include "randr.h"
 #include "wm.h"
 
 #define LEN(x) (sizeof(x)/sizeof(x[0]))
@@ -15,6 +14,10 @@
 struct xatom {
 	char *name;
 	xcb_atom_t atom;
+};
+
+struct xgeom {
+	int x, y, w, h, b;
 };
 
 enum EWMH_TYPES {
@@ -275,7 +278,8 @@ ewmh_fullscreen(xcb_window_t wid, int state)
 	size_t n;
 	int isfullscreen;
 	xcb_atom_t *atom, original_size;
-	struct geometry_t g, *origin;
+	xcb_randr_monitor_info_t *m;
+	struct xgeom g, *origin;
 
 	atom = wm_get_atom(wid, ewmh[_NET_WM_STATE].atom, XCB_ATOM_ATOM, &n);
 	original_size = wm_add_atom("ORIGINAL_SIZE", strlen("ORIGINAL_SIZE"));
@@ -307,13 +311,15 @@ ewmh_fullscreen(xcb_window_t wid, int state)
 		g.b = wm_get_attribute(wid, ATTR_B);
 		wm_set_atom(wid, original_size, XCB_ATOM_CARDINAL, 5, &g);
 
-		if (randr_geometry(g.x, g.y, &g) < 0)
+		m = wm_get_monitor(wm_find_monitor(g.x, g.y));
+		if (!m)
 			return -1;
 
 		/* move window fullscreen */
 		wm_set_border(0, -1, wid);
-		wm_teleport(wid, g.x, g.y, g.w, g.h);
+		wm_teleport(wid, m->x, m->y, m->width, m->height);
 		wm_set_atom(wid, ewmh[_NET_WM_STATE].atom, XCB_ATOM_ATOM, 1, &ewmh[_NET_WM_STATE_FULLSCREEN].atom);
+		free(m);
 		break;
 
 	case 2: /* _NET_WM_STATE_TOGGLE */
