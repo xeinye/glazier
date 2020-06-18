@@ -37,9 +37,10 @@ Edit config.mk as needed, then build/install with the following commands:
 	make
 	make install
 
-Require [libxcb][2] and [libwm][3].
+Require [libxcb][2], [libxcb-cursor][3] and [libwm][4].
 
 [0]: https://github.com/wmutils/core
 [1]: https://github.com/baskerville/sxhkd
 [2]: https://xcb.freedesktop.org
-[3]: http://z3bra.org/libwm
+[3]: https://gitlab.freedesktop.org/xorg/lib/libxcb-cursor
+[4]: http://z3bra.org/libwm
