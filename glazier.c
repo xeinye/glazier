@@ -204,10 +204,11 @@ paint(xcb_window_t wid)
 
 	w = wm_get_attribute(wid, ATTR_W);
 	h = wm_get_attribute(wid, ATTR_H);
-	b = border;
+	b = wm_get_attribute(wid, ATTR_B);
 	i = inner_border;
 
-	wm_set_border(border, border_color, wid);
+	if (i > b)
+		return -1;
 
 	px = xcb_generate_id(conn);
 	gc = xcb_generate_id(conn);
@@ -460,8 +461,9 @@ cb_mapreq(xcb_generic_event_t *ev)
 		fprintf(stderr, "%s 0x%08x\n", XEV(e), e->window);
 
 	wm_remap(e->window, MAP);
-	paint(e->window);
+	wm_set_border(border, 0, e->window);
 	wm_set_focus(e->window);
+	paint(e->window);
 
 	/* prevent window to pop outside the screen */
 	if (crossedge(e->window))
@@ -751,20 +753,26 @@ cb_configreq(xcb_generic_event_t *ev)
 			e->width, e->height,
 			e->x, e->y);
 
-	x = wm_get_attribute(e->window, ATTR_X);
-	y = wm_get_attribute(e->window, ATTR_Y);
-	w = wm_get_attribute(e->window, ATTR_W);
-	h = wm_get_attribute(e->window, ATTR_H);
+	if (e->value_mask &
+		( XCB_CONFIG_WINDOW_X
+		| XCB_CONFIG_WINDOW_Y
+		| XCB_CONFIG_WINDOW_WIDTH
+		| XCB_CONFIG_WINDOW_HEIGHT)) {
+		x = wm_get_attribute(e->window, ATTR_X);
+		y = wm_get_attribute(e->window, ATTR_Y);
+		w = wm_get_attribute(e->window, ATTR_W);
+		h = wm_get_attribute(e->window, ATTR_H);
 
-	if (e->value_mask & XCB_CONFIG_WINDOW_X) x = e->x;
-	if (e->value_mask & XCB_CONFIG_WINDOW_Y) y = e->y;
-	if (e->value_mask & XCB_CONFIG_WINDOW_WIDTH)  w = e->width;
-	if (e->value_mask & XCB_CONFIG_WINDOW_HEIGHT) h = e->height;
+		if (e->value_mask & XCB_CONFIG_WINDOW_X) x = e->x;
+		if (e->value_mask & XCB_CONFIG_WINDOW_Y) y = e->y;
+		if (e->value_mask & XCB_CONFIG_WINDOW_WIDTH)  w = e->width;
+		if (e->value_mask & XCB_CONFIG_WINDOW_HEIGHT) h = e->height;
 
-	wm_teleport(e->window, x, y, w, h);
+		wm_teleport(e->window, x, y, w, h);
 
-	/* redraw border pixmap after move/resize */
-	paint(e->window);
+		/* redraw border pixmap after move/resize */
+		paint(e->window);
+	}
 
 	if (e->value_mask & XCB_CONFIG_WINDOW_BORDER_WIDTH)
 		wm_set_border(e->border_width, border_color, e->window);
