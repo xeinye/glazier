@@ -142,6 +142,12 @@ adopt(xcb_window_t wid)
 		| XCB_EVENT_MASK_STRUCTURE_NOTIFY);
 }
 
+/*
+ * Return the color of the pixel in one of the window corners.
+ * Each corner is tested in a clockwise fashion until an uncovered region
+ * is found. When such pixel is found, the color is returned.
+ * If no color is found a default of border_color is returned.
+ */
 uint32_t
 backpixel(xcb_window_t wid)
 {
@@ -173,13 +179,109 @@ backpixel(xcb_window_t wid)
 	return color ? color : border_color;
 }
 
+/*
+ * Paint double borders around the window. The background is taken from
+ * the window content via backpixel(), and the border line is drawn on
+ * top of it using the colors defined in config.h.
+ *
+ * Note: drawing on the borders require specifying regions from position
+ * the top-left corner of the window itself. Drawing on the border pixmap
+ * is done by drawing outside the window, and then wrapping over to the
+ * left side. For example, assuming a window of 200x100, with a 10px
+ * border, drawing a 5px square in the top left of the border means drawing
+ * a 5x5 rectangle at position 210,110. The area does not wrap around
+ * indefinitely though, so drawing a rectangle of 10x10 or 200x10 at
+ * position 210,110 would have the same effect: draw a 10x10 square in
+ * the top right. uugh…
+ */
 int
 paint(xcb_window_t wid)
 {
-	if (wid == wm_get_focus())
-		return wm_set_border(border, border_color_active, wid);
+	int val[2], w, h, b, i;
+	xcb_pixmap_t px;
+	xcb_gcontext_t gc;
+	xcb_rectangle_t r[8];
 
-	return wm_set_border(border, backpixel(wid), wid);
+	w = wm_get_attribute(wid, ATTR_W);
+	h = wm_get_attribute(wid, ATTR_H);
+	b = border;
+	i = inner_border;
+
+	wm_set_border(border, border_color, wid);
+
+	px = xcb_generate_id(conn);
+	gc = xcb_generate_id(conn);
+
+	val[0] = backpixel(wid);
+	xcb_create_gc(conn, gc, wid, XCB_GC_FOREGROUND, val);
+	xcb_create_pixmap(conn, scrn->root_depth, px, wid, w + 2*b, h + 2*b);
+
+	/* background color */
+	r[0].x = 0;
+	r[0].y = 0;
+	r[0].width = w + 2*b;
+	r[0].height = h + 2*b;
+
+	xcb_poly_fill_rectangle(conn, px, gc, 1, r);
+
+	/* right */
+	r[0].x = w + (b-i)/2;
+	r[0].y = 0;
+	r[0].width = i;
+	r[0].height = h + (b+i)/2;
+
+	/* left */
+	r[1].x = w + b + (b-i)/2;
+	r[1].y = 0;
+	r[1].width = i;
+	r[1].height = h + (b+i)/2;
+
+	/* bottom; bottom-right corner */
+	r[2].x = 0;
+	r[2].y = h + (b-i)/2;
+	r[2].width = w + (b-i)/2 + i;
+	r[2].height = i;
+
+	/* top; top-right */
+	r[3].x = 0;
+	r[3].y = h + b + (b-i)/2;
+	r[3].width = w + (b+i)/2;
+	r[3].height = i;
+
+	/* top-left corner; top-part */
+	r[4].x = w + b + (b-i)/2;
+	r[4].y = h + b + (b-i)/2;
+	r[4].width = i + (b-i/2);
+	r[4].height = i;
+
+	/* top-left corner; left-part */
+	r[5].x = w + b + (b-i)/2;
+	r[5].y = h + b + (b-i)/2;
+	r[5].width = i;
+	r[5].height = i + (b-i/2);
+
+	/* top-right corner; right-part */
+	r[6].x = w + b + (b-i)/2;
+	r[6].y = h + (b-i)/2;
+	r[6].width = i + (b-i)/2;
+	r[6].height = i;
+
+	/* bottom-left corner; bottom-part */
+	r[7].x = w + (b-i)/2;
+	r[7].y = h + b + (b-i)/2;
+	r[7].width = i;
+	r[7].height = i + (b-i)/2;
+
+	val[0] = (wid == wm_get_focus()) ? border_color_active : border_color;
+	xcb_change_gc(conn, gc, XCB_GC_FOREGROUND, val);
+	xcb_poly_fill_rectangle(conn, px, gc, 8, r);
+
+	xcb_change_window_attributes(conn, wid, XCB_CW_BORDER_PIXMAP, &px);
+
+	xcb_free_pixmap(conn, px);
+	xcb_free_gc(conn, gc);
+
+	return 0;
 }
 
 /*
@@ -228,8 +330,10 @@ takeover()
 	}
 
 	wid = wm_get_focus();
-	if (wid != scrn->root)
+	if (wid != scrn->root) {
+		curwid = wid;
 		paint(wid);
+	}
 
 	return n;
 }
@@ -659,6 +763,9 @@ cb_configreq(xcb_generic_event_t *ev)
 
 	wm_teleport(e->window, x, y, w, h);
 
+	/* redraw border pixmap after move/resize */
+	paint(e->window);
+
 	if (e->value_mask & XCB_CONFIG_WINDOW_BORDER_WIDTH)
 		wm_set_border(e->border_width, border_color, e->window);
 
@@ -737,7 +844,7 @@ crossedge(xcb_window_t wid)
 		r = 1;
 
 	free(m);
-	
+
 	return r;
 }
 
@@ -767,7 +874,7 @@ snaptoedge(xcb_window_t wid)
 	if (y + h + 2*b > m->y + m->height) y = MAX(m->y + b, m->y + m->height - h - 2*b);
 
 	wm_teleport(wid, x, y, w, h);
-	
+
 	return 0;
 }
 
