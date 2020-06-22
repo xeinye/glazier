@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <xcb/xcb.h>
 #include <xcb/xcb_cursor.h>
+#include <xcb/xcb_image.h>
 #include <xcb/randr.h>
 
 #include "arg.h"
@@ -41,6 +42,8 @@ enum {
 void usage(char *);
 static int takeover();
 static int adopt(xcb_window_t);
+static uint32_t backpixel(xcb_window_t);
+static int paint(xcb_window_t);
 static int inflate(xcb_window_t, int);
 static int outline(xcb_drawable_t, int, int, int, int);
 static int ev_callback(xcb_generic_event_t *);
@@ -139,6 +142,46 @@ adopt(xcb_window_t wid)
 		| XCB_EVENT_MASK_STRUCTURE_NOTIFY);
 }
 
+uint32_t
+backpixel(xcb_window_t wid)
+{
+	int w, h;
+	uint32_t color;
+	xcb_image_t *px;
+
+	w = wm_get_attribute(wid, ATTR_W);
+	h = wm_get_attribute(wid, ATTR_H);
+
+	px = xcb_image_get(conn, wid, 0, 0, 1, 1, 0xffffffff, XCB_IMAGE_FORMAT_Z_PIXMAP);
+	if (px) color = xcb_image_get_pixel(px, 0, 0);
+
+	if (!color) {
+		px = xcb_image_get(conn, wid, w - 1, 0, 1, 1, 0xffffffff, XCB_IMAGE_FORMAT_Z_PIXMAP);
+		if (px) color = xcb_image_get_pixel(px, 0, 0);
+	}
+
+	if (!color) {
+		px = xcb_image_get(conn, wid, 0, h - 1, 1, 1, 0xffffffff, XCB_IMAGE_FORMAT_Z_PIXMAP);
+		if (px) color = xcb_image_get_pixel(px, 0, 0);
+	}
+
+	if (!color) {
+		px = xcb_image_get(conn, wid, w, h, 1, 1, 0xffffffff, XCB_IMAGE_FORMAT_Z_PIXMAP);
+		if (px) color = xcb_image_get_pixel(px, 0, 0);
+	}
+
+	return color ? color : border_color;
+}
+
+int
+paint(xcb_window_t wid)
+{
+	if (wid == wm_get_focus())
+		return wm_set_border(border, border_color_active, wid);
+
+	return wm_set_border(border, backpixel(wid), wid);
+}
+
 /*
  * Inflating a window will grow it both vertically and horizontally in
  * all 4 directions, thus making it look like it is inflating.
@@ -181,12 +224,12 @@ takeover()
 
 		adopt(wid);
 		if (wm_is_mapped(wid))
-			wm_set_border(border, border_color, wid);
+			paint(wid);
 	}
 
 	wid = wm_get_focus();
 	if (wid != scrn->root)
-		wm_set_border(border, border_color_active, wid);
+		paint(wid);
 
 	return n;
 }
@@ -313,7 +356,7 @@ cb_mapreq(xcb_generic_event_t *ev)
 		fprintf(stderr, "%s 0x%08x\n", XEV(e), e->window);
 
 	wm_remap(e->window, MAP);
-	wm_set_border(border, border_color, e->window);
+	paint(e->window);
 	wm_set_focus(e->window);
 
 	/* prevent window to pop outside the screen */
@@ -460,7 +503,7 @@ cb_mouse_release(xcb_generic_event_t *ev)
 	w = wm_get_attribute(curwid, ATTR_W);
 	h = wm_get_attribute(curwid, ATTR_H);
 	xcb_clear_area(conn, 1, curwid, 0, 0, w, h);
-	wm_set_border(-1, border_color_active, curwid);
+	paint(curwid);
 
 	return 0;
 }
@@ -574,10 +617,10 @@ cb_focus(xcb_generic_event_t *ev)
 	switch(e->response_type & ~0x80) {
 	case XCB_FOCUS_IN:
 		curwid = e->event;
-		return wm_set_border(-1, border_color_active, e->event);
+		return paint(e->event);
 		break; /* NOTREACHED */
 	case XCB_FOCUS_OUT:
-		return wm_set_border(-1, border_color, e->event);
+		return paint(e->event);
 		break; /* NOTREACHED */
 	}
 
