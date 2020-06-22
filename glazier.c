@@ -200,7 +200,6 @@ paint(xcb_window_t wid)
 	int val[2], w, h, b, i;
 	xcb_pixmap_t px;
 	xcb_gcontext_t gc;
-	xcb_rectangle_t r[8];
 
 	w = wm_get_attribute(wid, ATTR_W);
 	h = wm_get_attribute(wid, ATTR_H);
@@ -218,60 +217,21 @@ paint(xcb_window_t wid)
 	xcb_create_pixmap(conn, scrn->root_depth, px, wid, w + 2*b, h + 2*b);
 
 	/* background color */
-	r[0].x = 0;
-	r[0].y = 0;
-	r[0].width = w + 2*b;
-	r[0].height = h + 2*b;
+	xcb_rectangle_t bg = { 0, 0, w + 2*b, h + 2*b };
 
 	xcb_poly_fill_rectangle(conn, px, gc, 1, r);
 
-	/* right */
-	r[0].x = w + (b-i)/2;
-	r[0].y = 0;
-	r[0].width = i;
-	r[0].height = h + (b+i)/2;
-
-	/* left */
-	r[1].x = w + b + (b-i)/2;
-	r[1].y = 0;
-	r[1].width = i;
-	r[1].height = h + (b+i)/2;
-
-	/* bottom; bottom-right corner */
-	r[2].x = 0;
-	r[2].y = h + (b-i)/2;
-	r[2].width = w + (b-i)/2 + i;
-	r[2].height = i;
-
-	/* top; top-right */
-	r[3].x = 0;
-	r[3].y = h + b + (b-i)/2;
-	r[3].width = w + (b+i)/2;
-	r[3].height = i;
-
-	/* top-left corner; top-part */
-	r[4].x = w + b + (b-i)/2;
-	r[4].y = h + b + (b-i)/2;
-	r[4].width = i + (b-i/2);
-	r[4].height = i;
-
-	/* top-left corner; left-part */
-	r[5].x = w + b + (b-i)/2;
-	r[5].y = h + b + (b-i)/2;
-	r[5].width = i;
-	r[5].height = i + (b-i/2);
-
-	/* top-right corner; right-part */
-	r[6].x = w + b + (b-i)/2;
-	r[6].y = h + (b-i)/2;
-	r[6].width = i + (b-i)/2;
-	r[6].height = i;
-
-	/* bottom-left corner; bottom-part */
-	r[7].x = w + (b-i)/2;
-	r[7].y = h + b + (b-i)/2;
-	r[7].width = i;
-	r[7].height = i + (b-i)/2;
+	/* abandon all hopes already */
+	xcb_rectangle_t r[] = {
+		{w+(b-i)/2,0,i,h+(b+i)/2},             /* right */
+		{w+b+(b-i)/2,0,i,h+(b+i)/2},           /* left */
+		{0,h+(b-i)/2,w+(b-i)/2+i,i},           /* bottom; bottom-right */
+		{0,h+b+(b-i)/2,w+(b+i)/2,i},           /* top; top-right */
+		{w+b+(b-i)/2,h+b+(b-i)/2,i+(b-i/2),i}, /* top-left corner; top-part */
+		{w+b+(b-i)/2,h+b+(b-i)/2,i,i+(b-i/2)}, /* top-left corner; left-part */
+		{w+b+(b-i)/2,h+(b-i)/2,i+(b-i)/2,i},   /* top-right corner; right-part */
+		{w+(b-i)/2,h+b+(b-i)/2,i,i+(b-i)/2}    /* bottom-left corner; bottom-part */
+	}
 
 	val[0] = (wid == wm_get_focus()) ? border_color_active : border_color;
 	xcb_change_gc(conn, gc, XCB_GC_FOREGROUND, val);
