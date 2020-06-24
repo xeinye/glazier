@@ -217,9 +217,9 @@ paint(xcb_window_t wid)
 	xcb_create_pixmap(conn, scrn->root_depth, px, wid, w + 2*b, h + 2*b);
 
 	/* background color */
-	xcb_rectangle_t bg = { 0, 0, w + 2*b, h + 2*b };
+	xcb_rectangle_t bg = { 0, 0, w + 2*b, h + 2*b };
 
-	xcb_poly_fill_rectangle(conn, px, gc, 1, r);
+	xcb_poly_fill_rectangle(conn, px, gc, 1, &bg);
 
 	/* abandon all hopes already */
 	xcb_rectangle_t r[] = {
@@ -231,7 +231,7 @@ paint(xcb_window_t wid)
 		{w+b+(b-i)/2,h+b+(b-i)/2,i,i+(b-i/2)}, /* top-left corner; left-part */
 		{w+b+(b-i)/2,h+(b-i)/2,i+(b-i)/2,i},   /* top-right corner; right-part */
 		{w+(b-i)/2,h+b+(b-i)/2,i,i+(b-i)/2}    /* bottom-left corner; bottom-part */
-	}
+	};
 
 	val[0] = (wid == wm_get_focus()) ? border_color_active : border_color;
 	xcb_change_gc(conn, gc, XCB_GC_FOREGROUND, val);
