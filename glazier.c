@@ -838,8 +838,8 @@ snaptoedge(xcb_window_t wid)
 	if (w + 2*b > m->width)  w = m->width - 2*b;
 	if (h + 2*b > m->height) h = m->height - 2*b;
 
-	if (x + w + 2*b > m->x + m->width) x = MAX(m->x + b, m->x + m->width - w - 2*b);
-	if (y + h + 2*b > m->y + m->height) y = MAX(m->y + b, m->y + m->height - h - 2*b);
+	if (x + w + 2*b > m->x + m->width) x = MAX(m->x, m->x + m->width - w - 2*b);
+	if (y + h + 2*b > m->y + m->height) y = MAX(m->y, m->y + m->height - h - 2*b);
 
 	wm_teleport(wid, x, y, w, h);
 
