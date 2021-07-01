@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <xcb/xcb.h>
 #include <xcb/xcb_cursor.h>
+#include <xcb/xcb_image.h>
 #include <xcb/randr.h>
 
 #include "arg.h"
@@ -41,6 +42,8 @@ enum {
 void usage(char *);
 static int takeover();
 static int adopt(xcb_window_t);
+static uint32_t backpixel(xcb_window_t);
+static int paint(xcb_window_t);
 static int inflate(xcb_window_t, int);
 static int outline(xcb_drawable_t, int, int, int, int);
 static int ev_callback(xcb_generic_event_t *);
@@ -140,6 +143,109 @@ adopt(xcb_window_t wid)
 }
 
 /*
+ * Return the color of the pixel in one of the window corners.
+ * Each corner is tested in a clockwise fashion until an uncovered region
+ * is found. When such pixel is found, the color is returned.
+ * If no color is found a default of border_color is returned.
+ */
+uint32_t
+backpixel(xcb_window_t wid)
+{
+	int w, h;
+	uint32_t color;
+	xcb_image_t *px;
+
+	w = wm_get_attribute(wid, ATTR_W);
+	h = wm_get_attribute(wid, ATTR_H);
+
+	px = xcb_image_get(conn, wid, 0, 0, 1, 1, 0xffffffff, XCB_IMAGE_FORMAT_Z_PIXMAP);
+	if (px) color = xcb_image_get_pixel(px, 0, 0);
+
+	if (!color) {
+		px = xcb_image_get(conn, wid, w - 1, 0, 1, 1, 0xffffffff, XCB_IMAGE_FORMAT_Z_PIXMAP);
+		if (px) color = xcb_image_get_pixel(px, 0, 0);
+	}
+
+	if (!color) {
+		px = xcb_image_get(conn, wid, 0, h - 1, 1, 1, 0xffffffff, XCB_IMAGE_FORMAT_Z_PIXMAP);
+		if (px) color = xcb_image_get_pixel(px, 0, 0);
+	}
+
+	if (!color) {
+		px = xcb_image_get(conn, wid, w, h, 1, 1, 0xffffffff, XCB_IMAGE_FORMAT_Z_PIXMAP);
+		if (px) color = xcb_image_get_pixel(px, 0, 0);
+	}
+
+	return color ? color : border_color;
+}
+
+/*
+ * Paint double borders around the window. The background is taken from
+ * the window content via backpixel(), and the border line is drawn on
+ * top of it using the colors defined in config.h.
+ *
+ * Note: drawing on the borders require specifying regions from position
+ * the top-left corner of the window itself. Drawing on the border pixmap
+ * is done by drawing outside the window, and then wrapping over to the
+ * left side. For example, assuming a window of 200x100, with a 10px
+ * border, drawing a 5px square in the top left of the border means drawing
+ * a 5x5 rectangle at position 210,110. The area does not wrap around
+ * indefinitely though, so drawing a rectangle of 10x10 or 200x10 at
+ * position 210,110 would have the same effect: draw a 10x10 square in
+ * the top right. uugh…
+ */
+int
+paint(xcb_window_t wid)
+{
+	int val[2], w, h, b, i;
+	xcb_pixmap_t px;
+	xcb_gcontext_t gc;
+
+	w = wm_get_attribute(wid, ATTR_W);
+	h = wm_get_attribute(wid, ATTR_H);
+	b = wm_get_attribute(wid, ATTR_B);
+	i = inner_border;
+
+	if (i > b)
+		return -1;
+
+	px = xcb_generate_id(conn);
+	gc = xcb_generate_id(conn);
+
+	val[0] = backpixel(wid);
+	xcb_create_gc(conn, gc, wid, XCB_GC_FOREGROUND, val);
+	xcb_create_pixmap(conn, scrn->root_depth, px, wid, w + 2*b, h + 2*b);
+
+	/* background color */
+	xcb_rectangle_t bg = { 0, 0, w + 2*b, h + 2*b };
+
+	xcb_poly_fill_rectangle(conn, px, gc, 1, &bg);
+
+	/* abandon all hopes already */
+	xcb_rectangle_t r[] = {
+		{w+(b-i)/2,0,i,h+(b+i)/2},             /* right */
+		{w+b+(b-i)/2,0,i,h+(b+i)/2},           /* left */
+		{0,h+(b-i)/2,w+(b-i)/2+i,i},           /* bottom; bottom-right */
+		{0,h+b+(b-i)/2,w+(b+i)/2,i},           /* top; top-right */
+		{w+b+(b-i)/2,h+b+(b-i)/2,i+(b-i/2),i}, /* top-left corner; top-part */
+		{w+b+(b-i)/2,h+b+(b-i)/2,i,i+(b-i/2)}, /* top-left corner; left-part */
+		{w+b+(b-i)/2,h+(b-i)/2,i+(b-i)/2,i},   /* top-right corner; right-part */
+		{w+(b-i)/2,h+b+(b-i)/2,i,i+(b-i)/2}    /* bottom-left corner; bottom-part */
+	};
+
+	val[0] = (wid == wm_get_focus()) ? border_color_active : border_color;
+	xcb_change_gc(conn, gc, XCB_GC_FOREGROUND, val);
+	xcb_poly_fill_rectangle(conn, px, gc, 8, r);
+
+	xcb_change_window_attributes(conn, wid, XCB_CW_BORDER_PIXMAP, &px);
+
+	xcb_free_pixmap(conn, px);
+	xcb_free_gc(conn, gc);
+
+	return 0;
+}
+
+/*
  * Inflating a window will grow it both vertically and horizontally in
  * all 4 directions, thus making it look like it is inflating.
  * The window can be "deflated" by providing a negative `step` value.
@@ -181,12 +287,14 @@ takeover()
 
 		adopt(wid);
 		if (wm_is_mapped(wid))
-			wm_set_border(border, border_color, wid);
+			paint(wid);
 	}
 
 	wid = wm_get_focus();
-	if (wid != scrn->root)
-		wm_set_border(border, border_color_active, wid);
+	if (wid != scrn->root) {
+		curwid = wid;
+		paint(wid);
+	}
 
 	return n;
 }
@@ -313,8 +421,9 @@ cb_mapreq(xcb_generic_event_t *ev)
 		fprintf(stderr, "%s 0x%08x\n", XEV(e), e->window);
 
 	wm_remap(e->window, MAP);
-	wm_set_border(border, border_color, e->window);
+	wm_set_border(border, 0, e->window);
 	wm_set_focus(e->window);
+	paint(e->window);
 
 	/* prevent window to pop outside the screen */
 	if (crossedge(e->window))
@@ -460,7 +569,7 @@ cb_mouse_release(xcb_generic_event_t *ev)
 	w = wm_get_attribute(curwid, ATTR_W);
 	h = wm_get_attribute(curwid, ATTR_H);
 	xcb_clear_area(conn, 1, curwid, 0, 0, w, h);
-	wm_set_border(-1, border_color_active, curwid);
+	paint(curwid);
 
 	return 0;
 }
@@ -574,10 +683,10 @@ cb_focus(xcb_generic_event_t *ev)
 	switch(e->response_type & ~0x80) {
 	case XCB_FOCUS_IN:
 		curwid = e->event;
-		return wm_set_border(-1, border_color_active, e->event);
+		return paint(e->event);
 		break; /* NOTREACHED */
 	case XCB_FOCUS_OUT:
-		return wm_set_border(-1, border_color, e->event);
+		return paint(e->event);
 		break; /* NOTREACHED */
 	}
 
@@ -604,17 +713,26 @@ cb_configreq(xcb_generic_event_t *ev)
 			e->width, e->height,
 			e->x, e->y);
 
-	x = wm_get_attribute(e->window, ATTR_X);
-	y = wm_get_attribute(e->window, ATTR_Y);
-	w = wm_get_attribute(e->window, ATTR_W);
-	h = wm_get_attribute(e->window, ATTR_H);
+	if (e->value_mask &
+		( XCB_CONFIG_WINDOW_X
+		| XCB_CONFIG_WINDOW_Y
+		| XCB_CONFIG_WINDOW_WIDTH
+		| XCB_CONFIG_WINDOW_HEIGHT)) {
+		x = wm_get_attribute(e->window, ATTR_X);
+		y = wm_get_attribute(e->window, ATTR_Y);
+		w = wm_get_attribute(e->window, ATTR_W);
+		h = wm_get_attribute(e->window, ATTR_H);
 
-	if (e->value_mask & XCB_CONFIG_WINDOW_X) x = e->x;
-	if (e->value_mask & XCB_CONFIG_WINDOW_Y) y = e->y;
-	if (e->value_mask & XCB_CONFIG_WINDOW_WIDTH)  w = e->width;
-	if (e->value_mask & XCB_CONFIG_WINDOW_HEIGHT) h = e->height;
+		if (e->value_mask & XCB_CONFIG_WINDOW_X) x = e->x;
+		if (e->value_mask & XCB_CONFIG_WINDOW_Y) y = e->y;
+		if (e->value_mask & XCB_CONFIG_WINDOW_WIDTH)  w = e->width;
+		if (e->value_mask & XCB_CONFIG_WINDOW_HEIGHT) h = e->height;
 
-	wm_teleport(e->window, x, y, w, h);
+		wm_teleport(e->window, x, y, w, h);
+
+		/* redraw border pixmap after move/resize */
+		paint(e->window);
+	}
 
 	if (e->value_mask & XCB_CONFIG_WINDOW_BORDER_WIDTH)
 		wm_set_border(e->border_width, border_color, e->window);
@@ -694,7 +812,6 @@ crossedge(xcb_window_t wid)
 		r = 1;
 
 	free(m);
-	
 	return r;
 }
 
@@ -720,11 +837,11 @@ snaptoedge(xcb_window_t wid)
 	if (w + 2*b > m->width)  w = m->width - 2*b;
 	if (h + 2*b > m->height) h = m->height - 2*b;
 
-	if (x + w + 2*b > m->x + m->width) x = MAX(m->x + b, m->x + m->width - w - 2*b);
-	if (y + h + 2*b > m->y + m->height) y = MAX(m->y + b, m->y + m->height - h - 2*b);
+	if (x + w + 2*b > m->x + m->width) x = MAX(m->x, m->x + m->width - w - 2*b);
+	if (y + h + 2*b > m->y + m->height) y = MAX(m->y, m->y + m->height - h - 2*b);
 
 	wm_teleport(wid, x, y, w, h);
-	
+
 	return 0;
 }
 

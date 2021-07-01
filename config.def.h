@@ -10,9 +10,10 @@ char *xhair[] = {
 int modifier = XCB_MOD_MASK_1;
 
 /* window borders and titlebar */
-int border = 2;
-int border_color = 0x666666;
-int border_color_active = 0xdeadca7;
+int border = 8;
+int inner_border = 2;
+uint32_t border_color = 0x666666;
+uint32_t border_color_active = 0xdeadca7;
 
 /* move/resize step amound in pixels */
 int move_step = 8;
