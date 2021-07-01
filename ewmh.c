@@ -318,6 +318,7 @@ ewmh_fullscreen(xcb_window_t wid, int state)
 		/* move window fullscreen */
 		wm_set_border(0, -1, wid);
 		wm_teleport(wid, m->x, m->y, m->width, m->height);
+		wm_restack(wid, XCB_STACK_MODE_ABOVE);
 		wm_set_atom(wid, ewmh[_NET_WM_STATE].atom, XCB_ATOM_ATOM, 1, &ewmh[_NET_WM_STATE_FULLSCREEN].atom);
 		free(m);
 		break;
