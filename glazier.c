@@ -197,12 +197,13 @@ backpixel(xcb_window_t wid)
 int
 paint(xcb_window_t wid)
 {
-	int val[2], w, h, b, i;
+	int val[2], w, h, d, b, i;
 	xcb_pixmap_t px;
 	xcb_gcontext_t gc;
 
 	w = wm_get_attribute(wid, ATTR_W);
 	h = wm_get_attribute(wid, ATTR_H);
+	d = wm_get_attribute(wid, ATTR_D);
 	b = wm_get_attribute(wid, ATTR_B);
 	i = inner_border;
 
@@ -214,7 +215,7 @@ paint(xcb_window_t wid)
 
 	val[0] = backpixel(wid);
 	xcb_create_gc(conn, gc, wid, XCB_GC_FOREGROUND, val);
-	xcb_create_pixmap(conn, scrn->root_depth, px, wid, w + 2*b, h + 2*b);
+	xcb_create_pixmap(conn, d, px, wid, w + 2*b, h + 2*b);
 
 	/* background color */
 	xcb_rectangle_t bg = { 0, 0, w + 2*b, h + 2*b };
