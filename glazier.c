@@ -287,8 +287,10 @@ takeover()
 			fprintf(stderr, "Adopting 0x%08x\n", wid);
 
 		adopt(wid);
-		if (wm_is_mapped(wid))
+		if (wm_is_mapped(wid)) {
+			wm_set_border(border, 0, wid);
 			paint(wid);
+		}
 	}
 
 	wid = wm_get_focus();
