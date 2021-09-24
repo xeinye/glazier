@@ -261,7 +261,10 @@ inflate(xcb_window_t wid, int step)
 	w = wm_get_attribute(wid, ATTR_W) + step;
 	h = wm_get_attribute(wid, ATTR_H) + step;
 
-	return wm_teleport(wid, x, y, w, h);
+	wm_teleport(wid, x, y, w, h);
+	paint(wid);
+
+	return 0;
 }
 
 /*
