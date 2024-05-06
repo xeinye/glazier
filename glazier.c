@@ -13,6 +13,7 @@
 #define MIN(x,y) ((x)>(y)?(y):(x))
 #define MAX(x,y) ((x)>(y)?(x):(y))
 
+
 struct ev_callback_t {
 	uint32_t type;
 	int (*handle)(xcb_generic_event_t *);

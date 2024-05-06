@@ -7,10 +7,10 @@ char *xhair[] = {
 };
 
 /* key that must be pressed to register mouse events */
-int modifier = XCB_MOD_MASK_1;
+int modifier = XCB_MOD_MASK_4;
 
 /* window borders and titlebar */
-int border = 8;
+int border = 6;
 int inner_border = 2;
 uint32_t border_color = 0x666666;
 uint32_t border_color_active = 0xdeadca7;
